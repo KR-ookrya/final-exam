@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>프로젝트 WBS</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Malgun Gothic', '맑은 고딕', sans-serif; font-size: 12px; background: #fff; padding: 30px; color: #222; }
+
+  h1 { font-size: 24px; font-weight: bold; margin-bottom: 12px; }
+  .meta { margin-bottom: 20px; line-height: 1.8; color: #333; }
+  .meta span { color: #1a56a0; font-weight: bold; }
+
+  table { border-collapse: collapse; width: 100%; table-layout: fixed; }
+
+  /* column widths */
+  col.c-cat   { width: 50px; }
+  col.c-task  { width: 150px; }
+  col.c-owner { width: 80px; }
+  col.c-start { width: 80px; }
+  col.c-end   { width: 80px; }
+  col.c-pct   { width: 50px; }
+  col.c-day   { width: 20px; }
+
+  th, td {
+    border: 1px solid #aaa;
+    padding: 3px 4px;
+    text-align: center;
+    vertical-align: middle;
+    white-space: nowrap;
+    overflow: hidden;
+  }
+
+  thead th { background: #d9d9d9; font-weight: bold; font-size: 11px; }
+
+  /* month header */
+  .th-month { background: #c6c6c6; font-weight: bold; font-size: 11px; }
+
+  /* category cell spanning rows */
+  .td-cat {
+    font-weight: bold;
+    font-size: 13px;
+    writing-mode: horizontal-tb;
+    background: #f5f5f5;
+  }
+
+  /* section label rows */
+  .tr-section td {
+    background: #595959;
+    color: #fff;
+    font-size: 10px;
+    text-align: left;
+    padding-left: 4px;
+  }
+
+  /* task name left-align */
+  .td-task { text-align: left; padding-left: 6px; }
+
+  /* owner color */
+  .owner-plan { color: #1a56a0; }
+  .owner-design { color: #1a56a0; }
+  .owner-dev { color: #555; }
+  .owner-qa { color: #555; }
+
+  /* progress bar cell */
+  .pct-done { background: #4caf50; color: #fff; font-weight: bold; }
+  .pct-zero { background: #fff; color: #333; }
+
+  /* Gantt bar */
+  .gantt-bar { background: #7bafd4; height: 10px; border-radius: 2px; margin: 0 auto; }
+  .gantt-done { background: #4caf50; }
+  .gantt-today { background: #e57373; }
+
+  /* today marker header */
+  .th-today { background: #e57373 !important; color: #fff; }
+
+  /* highlight rows */
+  tr:hover td { background-color: #f0f5ff; }
+  .tr-section:hover td { background: #595959; }
+
+  /* alternating subtle */
+  tbody tr:nth-child(even):not(.tr-section) td { background-color: #fafafa; }
+  tbody tr:nth-child(even):not(.tr-section):hover td { background-color: #f0f5ff; }
+</style>
+</head>
+<body>
+
+<h1>프로젝트 WBS</h1>
+<div class="meta">
+  프로젝트 기간 : <span>26년 05월 12일 ~ 26년 07월 11일</span><br>
+  작성자 : <span>본인</span>&nbsp;&nbsp; 마지막 작성일 : <span>2026. 05. 12.</span>
+</div>
+
+<table id="wbs">
+<colgroup>
+  <col class="c-cat">
+  <col class="c-task">
+  <col class="c-owner">
+  <col class="c-start">
+  <col class="c-end">
+  <col class="c-pct">
+  <!-- 5월: 12~31 = 20일 -->
+  <col class="c-day" span="20">
+  <!-- 6월: 1~30 = 30일 -->
+  <col class="c-day" span="30">
+  <!-- 7월: 1~11 = 11일 -->
+  <col class="c-day" span="11">
+</colgroup>
+
+<thead>
+<tr>
+  <th rowspan="2" class="td-cat">구분</th>
+  <th rowspan="2">세부 업무 항목</th>
+  <th rowspan="2">파트/담당자</th>
+  <th rowspan="2">시작일</th>
+  <th rowspan="2">종료일</th>
+  <th rowspan="2">진척도<br>(%)</th>
+  <!-- Month headers -->
+  <th colspan="20" class="th-month">5월</th>
+  <th colspan="30" class="th-month">6월</th>
+  <th colspan="11" class="th-month">7월</th>
+</tr>
+<tr id="day-headers">
+  <!-- 5월 12~31 -->
+  <th>12</th><th>13</th><th>14</th><th>15</th><th>16</th><th>17</th><th>18</th><th>19</th><th>20</th><th>21</th>
+  <th>22</th><th>23</th><th>24</th><th>25</th><th>26</th><th>27</th><th>28</th><th>29</th><th>30</th><th>31</th>
+  <!-- 6월 1~30 -->
+  <th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th><th>8</th><th>9</th><th>10</th>
+  <th>11</th><th>12</th><th>13</th><th>14</th><th>15</th><th>16</th><th>17</th><th>18</th><th>19</th><th>20</th>
+  <th>21</th><th>22</th><th>23</th><th>24</th><th>25</th><th>26</th><th>27</th><th>28</th><th>29</th><th>30</th>
+  <!-- 7월 1~11 -->
+  <th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th><th>8</th><th>9</th><th>10</th><th>11</th>
+</tr>
+</thead>
+
+<tbody id="wbs-body">
+<!-- rows injected by JS -->
+</tbody>
+</table>
+
+<script>
+// All dates relative to epoch: day index 0 = 2026-05-12
+const ORIGIN = new Date('2026-05-12');
+const TOTAL_DAYS = 61; // 20 + 30 + 11
+
+function dayIndex(dateStr) {
+  const d = new Date(dateStr);
+  return Math.round((d - ORIGIN) / 86400000);
+}
+
+// data: [category, section, task, owner, ownerClass, start, end, pct]
+// section: group label; task: null means section row
+const rows = [
+  // ── 리서치 ──────────────────────────────────────────
+  ['리서치', 'Planning & Research', null, null, null, null, null, null],
+  ['리서치', null, '주제 선정 및 방향 설정', '본인', 'owner-plan', '2026-05-12', '2026-05-13', 100],
+  ['리서치', null, '벤치마킹 (레퍼런스 수집)', '본인', 'owner-plan', '2026-05-12', '2026-05-14', 100],
+  ['리서치', 'Content Strategy', null, null, null, null, null, null],
+  ['리서치', null, '소개할 프로젝트 목록 정리', '본인', 'owner-plan', '2026-05-14', '2026-05-15', 0],
+  ['리서치', null, '콘텐츠 구조(IA) 기획', '본인', 'owner-plan', '2026-05-15', '2026-05-16', 0],
+
+  // ── UX ──────────────────────────────────────────────
+  ['UX', 'UX Design & Follow-up', null, null, null, null, null, null],
+  ['UX', null, '사이트맵 작성', '본인', 'owner-plan', '2026-05-17', '2026-05-18', 0],
+  ['UX', null, '메인 와이어프레임 제작', '본인', 'owner-plan', '2026-05-18', '2026-05-21', 0],
+  ['UX', null, '서브 페이지 와이어프레임', '본인', 'owner-plan', '2026-05-21', '2026-05-24', 0],
+  ['UX', null, '와이어프레임 검토/보완', '본인', 'owner-plan', '2026-05-24', '2026-05-25', 0],
+
+  // ── UI ──────────────────────────────────────────────
+  ['UI', 'UI Design & Follow-up', null, null, null, null, null, null],
+  ['UI', null, '컬러·타이포 스타일 가이드', '본인', 'owner-design', '2026-05-26', '2026-05-28', 0],
+  ['UI', null, '메인 화면 디자인 (Figma)', '본인', 'owner-design', '2026-05-28', '2026-06-03', 0],
+  ['UI', null, 'About / Skills 섹션 디자인', '본인', 'owner-design', '2026-06-03', '2026-06-06', 0],
+  ['UI', null, 'Projects 섹션 디자인', '본인', 'owner-design', '2026-06-06', '2026-06-09', 0],
+  ['UI', null, 'Contact 섹션 디자인', '본인', 'owner-design', '2026-06-09', '2026-06-11', 0],
+  ['UI', null, '디자인 최종 검토', '본인', 'owner-design', '2026-06-11', '2026-06-12', 0],
+
+  // ── 개발 ──────────────────────────────────────────────
+  ['개발', 'Front-end 개발', null, null, null, null, null, null],
+  ['개발', null, '프로젝트 세팅 (HTML/CSS/JS)', '본인', 'owner-dev', '2026-06-13', '2026-06-14', 0],
+  ['개발', null, '헤더 & 내비게이션 구현', '본인', 'owner-dev', '2026-06-14', '2026-06-16', 0],
+  ['개발', null, 'Hero 섹션 구현', '본인', 'owner-dev', '2026-06-16', '2026-06-18', 0],
+  ['개발', null, 'About / Skills 섹션 구현', '본인', 'owner-dev', '2026-06-18', '2026-06-21', 0],
+  ['개발', null, 'Projects 카드 구현', '본인', 'owner-dev', '2026-06-21', '2026-06-25', 0],
+  ['개발', null, 'Contact 폼 구현', '본인', 'owner-dev', '2026-06-25', '2026-06-27', 0],
+  ['개발', null, '반응형(모바일) 대응', '본인', 'owner-dev', '2026-06-27', '2026-06-30', 0],
+  ['개발', null, '애니메이션 / 인터랙션 추가', '본인', 'owner-dev', '2026-06-30', '2026-07-03', 0],
+
+  // ── QA ──────────────────────────────────────────────
+  ['QA', '테스트 & 배포', null, null, null, null, null, null],
+  ['QA', null, '크로스 브라우저 테스트', '본인', 'owner-qa', '2026-07-04', '2026-07-05', 0],
+  ['QA', null, '모바일 디바이스 테스트', '본인', 'owner-qa', '2026-07-05', '2026-07-06', 0],
+  ['QA', null, '접근성·성능 검토', '본인', 'owner-qa', '2026-07-06', '2026-07-07', 0],
+  ['QA', null, '버그 수정', '본인', 'owner-qa', '2026-07-07', '2026-07-09', 0],
+  ['QA', null, 'GitHub Pages / Vercel 배포', '본인', 'owner-qa', '2026-07-09', '2026-07-10', 0],
+  ['QA', null, '최종 확인 및 완료 보고', '본인', 'owner-qa', '2026-07-10', '2026-07-11', 0],
+];
+
+const tbody = document.getElementById('wbs-body');
+
+// group rows by category to calculate rowspans
+const cats = [];
+let prevCat = null;
+rows.forEach((r, i) => {
+  if (r[0] !== prevCat) { cats.push({ cat: r[0], start: i, count: 0 }); prevCat = r[0]; }
+  cats[cats.length - 1].count++;
+});
+const catSpan = {};
+cats.forEach(c => { catSpan[c.start] = c.count; });
+
+rows.forEach((r, idx) => {
+  const [cat, section, task, owner, ownerClass, start, end, pct] = r;
+  const tr = document.createElement('tr');
+
+  // category cell
+  if (catSpan[idx] !== undefined) {
+    const td = document.createElement('td');
+    td.rowSpan = catSpan[idx];
+    td.className = 'td-cat';
+    td.textContent = cat;
+    tr.appendChild(td);
+  }
+
+  if (task === null) {
+    // section header row
+    tr.className = 'tr-section';
+    const td = document.createElement('td');
+    td.colSpan = 5 + TOTAL_DAYS;
+    td.textContent = section;
+    tr.appendChild(td);
+  } else {
+    // task row
+    const tdTask = document.createElement('td');
+    tdTask.className = 'td-task';
+    tdTask.textContent = task;
+    tr.appendChild(tdTask);
+
+    const tdOwner = document.createElement('td');
+    tdOwner.className = ownerClass;
+    tdOwner.textContent = owner;
+    tr.appendChild(tdOwner);
+
+    const tdStart = document.createElement('td');
+    tdStart.textContent = start ? start.replace('2026-', '26. ').replace(/-/g, '. ') : '';
+    tr.appendChild(tdStart);
+
+    const tdEnd = document.createElement('td');
+    tdEnd.textContent = end ? end.replace('2026-', '26. ').replace(/-/g, '. ') : '';
+    tr.appendChild(tdEnd);
+
+    const tdPct = document.createElement('td');
+    tdPct.textContent = pct;
+    tdPct.className = pct === 100 ? 'pct-done' : 'pct-zero';
+    tr.appendChild(tdPct);
+
+    // Gantt cells
+    const s = dayIndex(start);
+    const e = dayIndex(end);
+    for (let d = 0; d < TOTAL_DAYS; d++) {
+      const td = document.createElement('td');
+      td.style.padding = '2px 1px';
+      if (d >= s && d < e) {
+        const bar = document.createElement('div');
+        bar.className = 'gantt-bar' + (pct === 100 ? ' gantt-done' : '');
+        td.appendChild(bar);
+      }
+      tr.appendChild(td);
+    }
+  }
+
+  tbody.appendChild(tr);
+});
+
+// Mark today column (day index 0 = May 12 = today)
+const dayHeaders = document.querySelectorAll('#day-headers th');
+dayHeaders[0].className = 'th-today'; // May 12 = index 0
+</script>
+</body>
+</html>
