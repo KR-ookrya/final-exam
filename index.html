@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>자소서 AI — 기말 발표</title>
+<style>
+  :root{
+    --bg:#f0f2f8; --surface:#ffffff; --ink:#0f172a; --sub:#5b6478;
+    --primary:#5b5ef4; --primary-dark:#4644d6; --primary-light:#eeeeff;
+    --green:#10b981; --amber:#f59e0b; --red:#ef4444;
+    --border:#e2e8f2; --dark:#13162b; --dark-2:#1c2040; --dark-ink:#e8eaf6;
+    --radius:18px; --mono:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    font-family:'Pretendard','Apple SD Gothic Neo','Malgun Gothic',system-ui,sans-serif;
+    background:var(--bg); color:var(--ink); overflow:hidden;
+  }
+  /* ── 진행 바 ── */
+  #progress{position:fixed;top:0;left:0;height:4px;background:var(--primary);width:0;z-index:50;transition:width .25s ease}
+
+  /* ── 상단 바: 타이머 + 카운터 ── */
+  #topbar{position:fixed;top:10px;right:16px;z-index:40;display:flex;gap:8px;align-items:center}
+  #timer{font-family:var(--mono);font-size:15px;font-weight:700;background:var(--surface);
+    border:1px solid var(--border);border-radius:99px;padding:6px 14px;min-width:74px;text-align:center;
+    box-shadow:0 2px 8px rgba(0,0,0,.06)}
+  #timer.warn{color:var(--amber);border-color:var(--amber)}
+  #timer.over{color:#fff;background:var(--red);border-color:var(--red)}
+  .tbtn{border:1px solid var(--border);background:var(--surface);border-radius:99px;padding:6px 12px;
+    font-size:12px;font-weight:600;cursor:pointer;color:var(--sub)}
+  .tbtn:hover{color:var(--primary);border-color:var(--primary)}
+  #counter{font-family:var(--mono);font-size:12px;color:var(--sub);background:var(--surface);
+    border:1px solid var(--border);border-radius:99px;padding:6px 12px}
+
+  /* ── 슬라이드 ── */
+  .slide{position:absolute;inset:0;display:none;flex-direction:column;justify-content:center;
+    padding:7vh 9vw;opacity:0;transform:translateY(10px)}
+  .slide.active{display:flex;opacity:1;transform:none;animation:in .35s ease}
+  @keyframes in{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+  @media (prefers-reduced-motion: reduce){.slide.active{animation:none}}
+
+  .slide.dark{background:var(--dark);color:var(--dark-ink)}
+  .slide.dark .eyebrow{color:#9aa0ff}
+  .slide.dark .sub{color:#a8aecb}
+  .slide.dark .card{background:var(--dark-2);border-color:#2a2f55}
+
+  /* 배점 태그 (시그니처) */
+  .rubric{position:absolute;top:18px;left:9vw;display:flex;gap:6px;flex-wrap:wrap}
+  .rubric span{font-size:11.5px;font-weight:700;letter-spacing:.02em;color:var(--primary);
+    background:var(--primary-light);border-radius:99px;padding:5px 11px}
+  .slide.dark .rubric span{background:#262b58;color:#aab0ff}
+
+  .eyebrow{font-size:14px;font-weight:800;color:var(--primary);letter-spacing:.14em;margin-bottom:14px}
+  h1{font-size:clamp(34px,5.2vw,64px);font-weight:800;line-height:1.18;letter-spacing:-.02em}
+  h2{font-size:clamp(26px,3.6vw,44px);font-weight:800;line-height:1.22;letter-spacing:-.02em;margin-bottom:18px}
+  .sub{font-size:clamp(15px,1.5vw,19px);color:var(--sub);line-height:1.65;max-width:62ch}
+  .accent{color:var(--primary)}
+
+  .grid{display:grid;gap:14px;margin-top:26px}
+  .g2{grid-template-columns:1fr 1fr}.g3{grid-template-columns:1fr 1fr 1fr}.g4{grid-template-columns:repeat(4,1fr)}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 22px}
+  .card h3{font-size:16px;font-weight:800;margin-bottom:8px}
+  .card p,.card li{font-size:14px;color:var(--sub);line-height:1.6}
+  .slide.dark .card p,.slide.dark .card li{color:#a8aecb}
+  .card ul{padding-left:18px}
+  .num{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--primary);margin-bottom:6px}
+  .big{font-size:clamp(26px,3vw,38px);font-weight:800;letter-spacing:-.02em}
+  .tag{display:inline-block;font-size:12px;font-weight:700;background:var(--primary-light);color:var(--primary);
+    border-radius:99px;padding:4px 10px;margin:2px 4px 2px 0}
+  .ok{color:var(--green);font-weight:700}
+
+  pre{font-family:var(--mono);font-size:clamp(11px,1.15vw,14px);line-height:1.55;background:var(--dark-2);
+    color:#cdd3ff;border-radius:14px;padding:18px 22px;overflow:auto;border:1px solid #2a2f55}
+  .slide:not(.dark) pre{box-shadow:0 8px 28px rgba(20,24,60,.18)}
+  pre b{color:#8be9b5;font-weight:600}
+  pre i{color:#ffd479;font-style:normal}
+
+  table{border-collapse:collapse;width:100%;margin-top:18px;font-size:14px}
+  th,td{padding:10px 14px;text-align:left;border-bottom:1px solid var(--border)}
+  th{font-size:12.5px;letter-spacing:.06em;color:var(--sub);font-weight:700}
+  .slide.dark th,.slide.dark td{border-color:#2a2f55}
+
+  /* 데모 슬라이드 */
+  .demo-steps{display:flex;gap:0;align-items:stretch;margin-top:26px}
+  .dstep{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+    padding:18px;position:relative}
+  .dstep+.dstep{margin-left:34px}
+  .dstep+.dstep::before{content:'→';position:absolute;left:-26px;top:50%;transform:translateY(-50%);
+    font-size:20px;color:var(--primary);font-weight:800}
+  .dstep .t{font-family:var(--mono);font-size:11px;color:var(--primary);font-weight:700;margin-bottom:6px}
+  .dstep h3{font-size:15px;margin-bottom:6px}
+  .dstep p{font-size:13px;color:var(--sub);line-height:1.55}
+
+  /* 대본 패널 */
+  #notes{position:fixed;left:0;right:0;bottom:0;background:rgba(15,18,40,.96);color:#dfe3ff;
+    padding:18px 9vw 22px;font-size:15px;line-height:1.7;z-index:45;display:none;backdrop-filter:blur(6px);
+    border-top:2px solid var(--primary);max-height:38vh;overflow:auto}
+  #notes.show{display:block}
+  #notes .nt{font-size:11px;letter-spacing:.1em;color:#9aa0ff;font-weight:800;margin-bottom:6px}
+  #notes .nsec{font-family:var(--mono);color:#ffd479;font-size:12px;margin-left:8px}
+
+  /* 하단 힌트 */
+  #hint{position:fixed;bottom:12px;left:16px;font-size:11.5px;color:var(--sub);z-index:30;opacity:.75}
+
+  .footer-brand{position:absolute;bottom:22px;right:9vw;font-family:var(--mono);font-size:12px;color:var(--sub);opacity:.7}
+  @media(max-width:860px){
+    .g2,.g3,.g4{grid-template-columns:1fr}
+    .demo-steps{flex-direction:column}
+    .dstep+.dstep{margin-left:0;margin-top:28px}
+    .dstep+.dstep::before{content:'↓';left:50%;top:-24px;transform:translateX(-50%)}
+    .slide{padding:9vh 6vw;overflow-y:auto;justify-content:flex-start}
+  }
+</style>
+</head>
+<body>
+
+<div id="progress"></div>
+<div id="topbar">
+  <span id="counter">1 / 19</span>
+  <button class="tbtn" id="tStart" onclick="toggleTimer()">▶ 5:00 시작</button>
+  <button class="tbtn" onclick="resetTimer()">↺</button>
+  <span id="timer">5:00</span>
+</div>
+<div id="hint">← → 이동 · N 대본 · T 타이머</div>
+
+<!-- 1. 타이틀 -->
+<section class="slide active" data-notes="안녕하세요. 앱프로그래밍응용 기말 프로젝트, AI 자기소개서 첨삭 서비스 '자소서 AI'를 발표하겠습니다.|0:00–0:10">
+  <div class="eyebrow">앱프로그래밍응용 · 기말 프로젝트</div>
+  <h1>자소서 AI<br><span class="accent">합격률을 높이는 AI 자기소개서 첨삭</span></h1>
+  <p class="sub" style="margin-top:20px">Node.js + Express · Claude API(SSE 스트리밍) · Vanilla JS</p>
+  <p class="sub" style="margin-top:8px">발표자: 윤희호 · 신구대학교</p>
+  <div class="footer-brand">claude-opus-4-7 · 9 API endpoints · 3 ADRs</div>
+</section>
+
+<!-- 2. 비전 -->
+<section class="slide dark" data-notes="저의 비전은 한 문장입니다. '취준생의 경험을, 합격 가능한 언어로 바꿔주는 AI.' 누구나 경험은 있지만, 그것을 채용 담당자에게 통하는 언어로 옮기는 건 다른 문제입니다. 그 번역을 AI가 즉시, 무료로 해주는 서비스를 만들고자 했습니다.|0:10–0:35">
+  <div class="rubric"><span>발표 체계성 · 비전 표현 +1</span><span>와닿게 표현 +1</span></div>
+  <div class="eyebrow">VISION</div>
+  <h1>"취준생의 경험을<br><span class="accent" style="color:#9aa0ff">합격 가능한 언어</span>로 바꿔주는 AI"</h1>
+  <p class="sub" style="margin-top:22px">경험이 부족한 게 아니라, 경험을 <b>설득력 있는 문장으로 옮기는 일</b>이 어려운 겁니다.<br>자소서 AI는 그 번역을 — 즉시 · 무료 · 무제한으로 해결합니다.</p>
+</section>
+
+<!-- 3. 문제 정의 -->
+<section class="slide" data-notes="문제를 세 가지로 정의했습니다. 전문 첨삭은 한 건에 3만에서 10만 원으로 비쌉니다. 주변 현직자에게 솔직한 피드백을 받기도 어렵습니다. 그리고 혼자 수십 번을 고쳐도 어디가 문제인지 객관적으로 알 수 없습니다. 이 자리에 계신 분들도 한 번쯤 겪어보셨을 문제라고 생각합니다.|0:35–1:00">
+  <div class="rubric"><span>문제 정의 표현 +1</span><span>공감대 형성 +1</span></div>
+  <div class="eyebrow">PROBLEM</div>
+  <h2>취준생이 마주하는 <span class="accent">3가지 벽</span></h2>
+  <div class="grid g3">
+    <div class="card"><div class="big accent">3~10만원</div><h3>비용의 벽</h3><p>전문 첨삭 1건 비용.<br>여러 회사에 지원할수록 부담은 배가됩니다.</p></div>
+    <div class="card"><div class="big accent">피드백 부재</div><h3>관계의 벽</h3><p>현직자·경력자에게 솔직한 피드백을 구하기 어렵습니다.</p></div>
+    <div class="card"><div class="big accent">객관화 불가</div><h3>자기 평가의 벽</h3><p>혼자 수십 번 고쳐도 어디가 문제인지 스스로는 알 수 없습니다.</p></div>
+  </div>
+</section>
+
+<!-- 4. WBS & 일정 -->
+<section class="slide" data-notes="프로젝트는 WBS 6개 대분류로 관리했습니다. 프로젝트 관리, 백엔드, 프론트엔드, AI 프롬프트, 고도화, 배포입니다. 10주차부터 15주차까지 6주 스프린트로, 문서화에서 시작해 통합 테스트와 최종 발표로 마무리했습니다.|1:00–1:20">
+  <div class="rubric"><span>WBS 표현·구성 +1</span><span>프로젝트 진행·완료 +1</span></div>
+  <div class="eyebrow">PLAN — WBS & SCHEDULE</div>
+  <h2>WBS 6대 분류 · 6주 스프린트</h2>
+  <div class="grid g3">
+    <div class="card"><div class="num">1</div><h3>프로젝트 관리</h3><p>비전·요구사항·WBS·일정 문서화</p></div>
+    <div class="card"><div class="num">2</div><h3>백엔드</h3><p>Express 서버 · Claude API 연동 · 유효성 검사</p></div>
+    <div class="card"><div class="num">3</div><h3>프론트엔드</h3><p>입력 UI · 스트리밍 출력 · UX 보조</p></div>
+    <div class="card"><div class="num">4</div><h3>AI 프롬프트</h3><p>시스템 프롬프트 7종 설계</p></div>
+    <div class="card"><div class="num">5</div><h3>고도화 (v2.0)</h3><p>이력 저장 · 항목별 모드 · 반응형</p></div>
+    <div class="card"><div class="num">6</div><h3>배포 & 마무리</h3><p>배포 환경 · 최종 제출 준비</p></div>
+  </div>
+  <pre style="margin-top:16px">10주차      11주차      12주차      13주차      14주차      15주차
+<b>정비·문서화</b>  UI/UX 개선   기능 고도화①  기능 고도화②  <b>통합 테스트</b>   <i>최종 발표·제출</i></pre>
+</section>
+
+<!-- 5. 적용 기술 -->
+<section class="slide" data-notes="적용 기술입니다. 백엔드는 Node.js와 Express로 경량 서버를 구성했고, AI는 Anthropic SDK로 클로드 오퍼스 모델을 연동했습니다. 핵심은 SSE 서버 센트 이벤트 스트리밍으로, AI가 생성하는 첨삭 결과를 한 글자씩 실시간으로 사용자 화면에 흘려보냅니다. 프론트는 빌드 과정이 필요 없는 바닐라 JS입니다.|1:20–1:45">
+  <div class="rubric"><span>적용 기술 표현 +1</span><span>기본소양 · 기술 설명 +1</span></div>
+  <div class="eyebrow">TECH STACK</div>
+  <h2>적용 기술</h2>
+  <div class="grid g4">
+    <div class="card"><h3>Backend</h3><p><b>Node.js + Express</b></p><ul><li>경량 단일 서버</li><li>express.static 정적 서빙</li><li>JSON 50kb 요청 제한</li></ul></div>
+    <div class="card"><h3>AI</h3><p><b>Anthropic SDK</b></p><ul><li>claude-opus-4-7</li><li>Prompt Caching</li><li>시스템 프롬프트 7종</li></ul></div>
+    <div class="card"><h3>실시간 전송</h3><p><b>SSE 스트리밍</b></p><ul><li>text/event-stream</li><li>생성 즉시 화면 출력</li><li>브라우저 기본 API 수신</li></ul></div>
+    <div class="card"><h3>Frontend</h3><p><b>Vanilla HTML/CSS/JS</b></p><ul><li>무빌드 · 의존성 0</li><li>DOM 직접 상태 관리</li><li>빠른 초기 로드</li></ul></div>
+  </div>
+</section>
+
+<!-- 6. 아키텍처 -->
+<section class="slide dark" data-notes="전체 아키텍처는 3계층입니다. 브라우저에서 Express 서버로 HTTP 요청이 오면, 서버는 레이트 리미터로 IP당 60초에 10회로 요청을 제한하고, 입력을 정제한 뒤 Anthropic API를 호출합니다. 응답은 SSE로 브라우저에 스트리밍됩니다. 공유 링크는 24시간 TTL의 인메모리 저장소로 처리합니다.|1:45–2:05">
+  <div class="rubric"><span>질의응답 · 아키텍처 +1</span><span>기본소양 · 아키텍처 이해 +1</span></div>
+  <div class="eyebrow">ARCHITECTURE</div>
+  <h2>시스템 아키텍처</h2>
+  <pre>
+┌──────────────────────────────────────────────────┐
+│            <b>Browser (Client)</b>                      │
+│   public/index.html + style.css · Vanilla JS     │
+└──────────────────────┬───────────────────────────┘
+                       │ HTTP / <i>SSE 스트리밍</i>
+┌──────────────────────▼───────────────────────────┐
+│            <b>Node.js + Express (server.js)</b>         │
+│  ┌────────────┐ ┌───────────────┐ ┌────────────┐ │
+│  │Rate Limiter│ │Input Sanitiser│ │Share Store │ │
+│  │ 10req/60s  │ │  XSS 방지      │ │  24h TTL   │ │
+│  └────────────┘ └───────────────┘ └────────────┘ │
+│  /api/analyze · rewrite · interview · cliche     │
+│  /api/differentiate · score-predict · chat ...   │
+└──────────────────────┬───────────────────────────┘
+                       │ HTTPS (Anthropic SDK)
+┌──────────────────────▼───────────────────────────┐
+│        <b>Anthropic Claude API</b> (claude-opus-4-7)    │
+│        Prompt Caching · max_tokens 4096          │
+└──────────────────────────────────────────────────┘</pre>
+</section>
+
+<!-- 7. 앱 구조 -->
+<section class="slide" data-notes="앱의 레이어와 디렉토리 구조입니다. server.js가 라우팅과 미들웨어, AI 연동을 담당하는 서버 계층이고, public 폴더가 프레젠테이션 계층입니다. 기획 문서는 .planning, 운영 문서는 docs 폴더로 분리해 코드와 문서를 한 저장소에서 관리합니다.|2:05–2:20">
+  <div class="rubric"><span>질의응답 · 앱 구조(레이어·디렉토리) +1</span></div>
+  <div class="eyebrow">APP STRUCTURE</div>
+  <h2>레이어 & 디렉토리 구조</h2>
+  <div class="grid g2">
+    <pre>ai-cover-letter-editor/
+├── server.js          <b># 서버 계층 (라우트+미들웨어+AI)</b>
+├── package.json
+├── .env / .env.example
+├── public/            <b># 프레젠테이션 계층</b>
+│   ├── index.html     # 단일 페이지 UI
+│   └── style.css
+├── docs/              <b># 운영 문서</b>
+│   ├── setup.md
+│   └── architecture.md
+└── .planning/         <b># 기획 문서</b>
+    ├── 00-vision.md … 03-schedule.md
+    └── decisions/ADR-0001~0003.md</pre>
+    <div>
+      <div class="card"><h3>서버 계층 — server.js</h3><p>미들웨어(rate limit · sanitize) → API 라우트 9개 → Anthropic SDK 호출 → SSE 응답. 단일 파일이지만 책임 블록을 주석 구획으로 분리.</p></div>
+      <div class="card" style="margin-top:14px"><h3>클라이언트 계층 — public/</h3><p>입력 → fetch/EventSource 수신 → DOM 직접 렌더링. 빌드 없이 express.static으로 즉시 서빙.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 8. 개발 환경 설정 -->
+<section class="slide" data-notes="개발 환경은 Node 20 이상과 npm 10 이상이면 됩니다. 클론 후 npm install, .env.example을 복사해 ANTHROPIC_API_KEY를 넣고, node server.js 한 줄로 실행됩니다. 별도 빌드 도구가 없어서 환경 구성이 1분 안에 끝납니다.|2:20–2:35">
+  <div class="rubric"><span>질의응답 · 개발 환경 설정 +1</span><span>기본소양 · 개발환경 구성 +1</span></div>
+  <div class="eyebrow">DEV ENVIRONMENT</div>
+  <h2>개발 환경 설정 — <span class="accent">4단계 1분 셋업</span></h2>
+  <div class="grid g2">
+    <pre><b># 1. 클론</b>
+git clone https://github.com/&lt;id&gt;/ai-cover-letter-editor.git
+
+<b># 2. 의존성 설치 (express · @anthropic-ai/sdk · dotenv)</b>
+npm install
+
+<b># 3. 환경변수</b>
+cp .env.example .env   <i># ANTHROPIC_API_KEY 입력</i>
+
+<b># 4. 실행</b>
+npm start              <i># node server.js → :3000</i></pre>
+    <div class="card"><h3>도구 버전</h3>
+      <table>
+        <tr><th>도구</th><th>버전</th><th>확인</th></tr>
+        <tr><td>Node.js</td><td>20.x+</td><td><code>node -v</code></td></tr>
+        <tr><td>npm</td><td>10.x+</td><td><code>npm -v</code></td></tr>
+        <tr><td>Git</td><td>최신</td><td><code>git --version</code></td></tr>
+      </table>
+      <p style="margin-top:10px">API 키는 <b>.env로만 관리</b>, .gitignore 처리 → 저장소에 비밀값 미포함.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 9. 빌드 & 배포 -->
+<section class="slide" data-notes="빌드와 배포 개념입니다. 이 앱은 트랜스파일이 필요 없는 무빌드 구조라 빌드 단계는 의존성 설치가 전부입니다. 배포는 소스 획득, 의존성 설치, 환경변수 주입, 프로세스 기동, 그리고 헬스 체크 순서입니다. 빌드는 실행 가능한 산출물을 만드는 과정이고, 배포는 그 산출물을 운영 환경에 올려 서비스하는 과정이라는 개념으로 이해하고 구성했습니다.|2:35–2:55">
+  <div class="rubric"><span>질의응답 · 빌드와 배포 단계 +1</span></div>
+  <div class="eyebrow">BUILD & DEPLOY</div>
+  <h2>빌드 → 배포 파이프라인</h2>
+  <div class="demo-steps">
+    <div class="dstep"><div class="t">BUILD ①</div><h3>소스 획득</h3><p>git clone / pull — 버전 태그 기준</p></div>
+    <div class="dstep"><div class="t">BUILD ②</div><h3>의존성 설치</h3><p>npm install (무빌드 구조 → 트랜스파일 불필요)</p></div>
+    <div class="dstep"><div class="t">DEPLOY ①</div><h3>환경변수 주입</h3><p>ANTHROPIC_API_KEY · PORT — 서버 환경에서 .env 구성</p></div>
+    <div class="dstep"><div class="t">DEPLOY ②</div><h3>프로세스 기동</h3><p>node server.js (pm2로 상시 실행·재시작 관리 가능)</p></div>
+    <div class="dstep"><div class="t">VERIFY</div><h3>헬스 체크</h3><p>GET / 응답 + /api/analyze 스모크 테스트</p></div>
+  </div>
+  <p class="sub" style="margin-top:18px"><b>개념 정리</b> — 빌드: 실행 가능한 산출물을 만드는 과정 · 배포: 산출물을 운영 환경에 올려 서비스하는 과정</p>
+</section>
+
+<!-- 10. 구현 방법 -->
+<section class="slide" data-notes="구현의 핵심은 SSE 스트리밍 루프입니다. 클라이언트가 자소서를 보내면, 서버가 Anthropic SDK의 스트림을 열고 델타 이벤트가 올 때마다 res.write로 즉시 흘려보냅니다. 이 패턴 하나를 공통화해서 분석, 첨삭, 면접 질문 예측, 진부한 표현 감지 등 9개 기능을 같은 구조로 구현했습니다.|2:55–3:15">
+  <div class="rubric"><span>어떻게 구현했는가 +1</span></div>
+  <div class="eyebrow">IMPLEMENTATION</div>
+  <h2>구현 방법 — <span class="accent">SSE 스트리밍 패턴 1개 × 기능 9개</span></h2>
+  <div class="grid g2">
+    <pre><b>// server.js — 핵심 스트리밍 루프</b>
+res.setHeader('Content-Type','text/event-stream');
+const stream = client.messages.stream({
+  model: 'claude-opus-4-7',
+  system: [{ type:'text', text: SYSTEM_PROMPT,
+             cache_control:{type:'ephemeral'} }],
+  messages:[{ role:'user', content: userText }]
+});
+stream.on('text', t =>
+  res.write(`data: ${JSON.stringify({t})}\n\n`));
+stream.on('end', () => res.end());</pre>
+    <div class="card"><h3>API 9종 — 동일 패턴 재사용</h3>
+      <p>
+        <span class="tag">/analyze 종합 첨삭+채점</span><span class="tag">/rewrite 문단 재작성</span>
+        <span class="tag">/interview 면접질문 예측</span><span class="tag">/cliche 진부표현 감지</span>
+        <span class="tag">/differentiate 차별화 분석</span><span class="tag">/score-predict 전후 점수</span>
+        <span class="tag">/style-adapt 회사 맞춤</span><span class="tag">/chat 후속 질의</span>
+        <span class="tag">/share 결과 공유 링크</span>
+      </p>
+      <p style="margin-top:10px">기능마다 <b>시스템 프롬프트만 교체</b>하고 스트리밍·검증·에러 처리 로직은 공통화 → 기능 추가 비용 최소화.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 11. 시행착오 -->
+<section class="slide dark" data-notes="개발자 관점의 시행착오 세 가지입니다. 첫째, 처음엔 응답을 통째로 기다렸다 보냈는데 30초 공백이 생겨 SSE로 전환했습니다. 둘째, 테스트 중 무한 호출로 API 크레딧이 소모돼 IP당 레이트 리미터를 직접 구현했습니다. 셋째, 사용자 입력이 프롬프트와 화면에 그대로 들어가는 문제를 발견해 sanitize 함수로 꺾쇠 제거와 길이 제한을 걸었습니다.|3:15–3:35">
+  <div class="rubric"><span>기본소양 · 구현 시행착오(개발자 관점) +1</span></div>
+  <div class="eyebrow">TRIAL & ERROR</div>
+  <h2>구현 시행착오 3가지</h2>
+  <div class="grid g3">
+    <div class="card"><div class="num">문제 ①</div><h3>응답 대기 30초의 공백</h3><p><b>증상</b> 전체 응답 완성까지 빈 화면.<br><b>해결</b> 일괄 응답 → <b>SSE 스트리밍</b> 전환. 첫 글자 출력 3초 이내로 체감 대기 제거.</p></div>
+    <div class="card"><div class="num">문제 ②</div><h3>API 크레딧 소모</h3><p><b>증상</b> 테스트 중 반복 호출로 비용 급증.<br><b>해결</b> IP당 <b>10req/60s 레이트 리미터</b>를 Map 기반으로 직접 구현 + 주기적 GC.</p></div>
+    <div class="card"><div class="num">문제 ③</div><h3>입력값 그대로 노출</h3><p><b>증상</b> 사용자 입력이 프롬프트·DOM에 무검증 진입.<br><b>해결</b> <b>sanitize 함수</b>로 &lt; &gt; 제거 · 최대 길이 제한 · 타입 검사 공통화.</p></div>
+  </div>
+</section>
+
+<!-- 12. 성능 최적화 -->
+<section class="slide" data-notes="성능 최적화는 세 갈래로 했습니다. 프롬프트 캐싱으로 매 요청마다 반복되는 시스템 프롬프트를 캐시해 응답 지연과 비용을 줄였고, SSE로 체감 대기 시간을 30초에서 3초로 줄였습니다. 요청 본문도 50킬로바이트로 제한해 서버 메모리를 보호합니다.|3:35–3:50">
+  <div class="rubric"><span>기본소양 · 성능 최적화 +1</span></div>
+  <div class="eyebrow">PERFORMANCE</div>
+  <h2>성능 최적화</h2>
+  <div class="grid g3">
+    <div class="card"><div class="big accent">Prompt Caching</div><p style="margin-top:8px">시스템 프롬프트에 <code>cache_control: ephemeral</code> 적용 → 반복 호출 시 입력 토큰 처리 비용·지연 절감.</p></div>
+    <div class="card"><div class="big accent">30s → 3s</div><p style="margin-top:8px">SSE 스트리밍으로 첫 출력까지의 체감 대기 시간 단축. 첨삭 1건 완료 30초 이내 목표 달성.</p></div>
+    <div class="card"><div class="big accent">50kb 제한</div><p style="margin-top:8px">express.json limit + 입력 5,000자 컷으로 서버 메모리·토큰 비용 상한 고정. 공유 저장소는 24h TTL 자동 정리.</p></div>
+  </div>
+</section>
+
+<!-- 13. 코드 품질 -->
+<section class="slide" data-notes="코드 품질 관리입니다. 프롬프트는 전부 상수로 분리해 한 곳에서 관리하고, 입력 검증과 레이트 리밋은 공통 함수와 미들웨어로 모든 라우트에 일관 적용합니다. 에러는 401 인증 오류와 일반 오류를 분기해 사용자에게 한국어 메시지로 안내합니다. API 키 같은 비밀값은 .env로만 관리합니다.|3:50–4:00">
+  <div class="rubric"><span>기본소양 · 코드 품질 관리 +1</span></div>
+  <div class="eyebrow">CODE QUALITY</div>
+  <h2>코드 품질 관리 원칙</h2>
+  <div class="grid g2">
+    <div class="card"><h3>구조 일관성</h3><ul>
+      <li>시스템 프롬프트 7종을 <b>상수로 분리</b> — 로직과 콘텐츠 분리</li>
+      <li>모든 라우트에 <b>동일 미들웨어 체인</b> (rateLimit → 검증 → 호출)</li>
+      <li>주석 구획(── 섹션 ──)으로 책임 영역 명시</li></ul></div>
+    <div class="card"><h3>방어적 코딩</h3><ul>
+      <li><b>clean() 공통 검증</b>: 타입 검사 · XSS 문자 제거 · 길이 제한</li>
+      <li>에러 분기: 401(키 오류) vs 5xx — 한국어 사용자 메시지</li>
+      <li>비밀값 <b>.env 단일 관리</b> + .gitignore (저장소 무노출)</li></ul></div>
+  </div>
+</section>
+
+<!-- 14. 테스트 -->
+<section class="slide" data-notes="테스트는 단위와 통합 두 층으로 진행했습니다. 단위 테스트는 clean 함수의 XSS 제거와 길이 컷, 레이트 리미터의 11번째 요청 차단을 검증했고, 통합 테스트는 서버를 띄운 상태에서 analyze API에 50자 미만 입력 시 400 반환, 정상 입력 시 SSE 이벤트 수신을 확인했습니다.|4:00–4:10">
+  <div class="rubric"><span>기본소양 · 단위 테스트 +1</span><span>통합 테스트 +1</span></div>
+  <div class="eyebrow">TESTING</div>
+  <h2>테스트 — 단위 / 통합</h2>
+  <div class="grid g2">
+    <div class="card"><h3>단위 테스트 (Unit)</h3>
+      <table>
+        <tr><th>대상</th><th>케이스</th><th>결과</th></tr>
+        <tr><td>clean()</td><td>&lt;script&gt; 입력 → 꺾쇠 제거</td><td class="ok">PASS</td></tr>
+        <tr><td>clean()</td><td>5,000자 초과 → 절단</td><td class="ok">PASS</td></tr>
+        <tr><td>rateLimit()</td><td>11번째 요청 → 429</td><td class="ok">PASS</td></tr>
+        <tr><td>shareStore</td><td>24h 경과 → 자동 삭제</td><td class="ok">PASS</td></tr>
+      </table></div>
+    <div class="card"><h3>통합 테스트 (Integration)</h3>
+      <table>
+        <tr><th>시나리오</th><th>기대</th><th>결과</th></tr>
+        <tr><td>POST /api/analyze (50자 미만)</td><td>400 + 안내</td><td class="ok">PASS</td></tr>
+        <tr><td>POST /api/analyze (정상)</td><td>SSE 수신</td><td class="ok">PASS</td></tr>
+        <tr><td>POST /api/share → GET /:id</td><td>결과 복원</td><td class="ok">PASS</td></tr>
+        <tr><td>API 키 오류</td><td>401 분기 메시지</td><td class="ok">PASS</td></tr>
+      </table></div>
+  </div>
+</section>
+
+<!-- 15. ADR -->
+<section class="slide dark" data-notes="질의응답에 대비해 핵심 의사결정을 ADR 3건으로 기록했습니다. 첫째, 프론트엔드는 Flutter 대신 바닐라 JS를 선택했습니다. SSE 수신이 브라우저 기본 API로 충분하고 무빌드라는 이점 때문입니다. 둘째, 상태 관리도 라이브러리 없이 DOM 직접 제어로 결정했습니다. 셋째, 백엔드는 Express, 모델은 한국어 품질이 가장 좋은 클로드 오퍼스, 응답은 SSE로 결정했습니다. 질문 주시면 이 ADR 기준으로 답변드리겠습니다.|4:10–4:30">
+  <div class="rubric"><span>질의응답 · ADR 최소 3개 +1</span><span>답변 ADR 기준 일관성 +1</span></div>
+  <div class="eyebrow">ARCHITECTURE DECISION RECORDS</div>
+  <h2>ADR 3건 — 의사결정 기록</h2>
+  <div class="grid g3">
+    <div class="card"><div class="num">ADR-0001</div><h3>프론트엔드 프레임워크</h3>
+      <p><b>선택지</b> Vanilla / Flutter Web / React<br><b>결정</b> Vanilla HTML·CSS·JS<br><b>근거</b> SSE 수신은 기본 EventSource로 충분, 무빌드 즉시 서빙, 앱 규모 대비 과한 도구 배제.</p></div>
+    <div class="card"><div class="num">ADR-0002</div><h3>상태 관리 방식</h3>
+      <p><b>선택지</b> Vanilla DOM / Redux / React state<br><b>결정</b> DOM 직접 제어<br><b>근거</b> 상태가 단순(입력·결과·로딩·점수) → 라이브러리 도입 비용이 효익보다 큼.</p></div>
+    <div class="card"><div class="num">ADR-0003</div><h3>백엔드 & AI 연동</h3>
+      <p><b>선택지</b> Express / FastAPI / Next.js<br><b>결정</b> Express + claude-opus-4-7 + SSE<br><b>근거</b> JS 단일 생태계, 한국어 첨삭 품질 최상위 모델, 실시간 출력.</p></div>
+  </div>
+</section>
+
+<!-- 16. GitHub 설치 가이드 -->
+<section class="slide" data-notes="GitHub 저장소에는 README와 docs/setup.md로 설치 가이드를 제공합니다. 클론, 설치, 환경변수, 실행까지 그대로 따라하면 동작하도록 검증했고, 기획서·WBS·아키텍처·ADR·테스트 문서가 같은 저장소에 모두 포함되어 있습니다.|4:30–4:40">
+  <div class="rubric"><span>기본소양 · GitHub 설치 가이드 +1</span></div>
+  <div class="eyebrow">GITHUB</div>
+  <h2>저장소 & 설치 가이드</h2>
+  <div class="grid g2">
+    <pre><b>github.com/&lt;id&gt;/ai-cover-letter-editor</b>
+
+README.md            # 소개·실행 방법·스크린샷
+docs/setup.md        # 도구 버전·클론·설치·환경변수·실행
+docs/architecture.md # 아키텍처 다이어그램
+docs/testing.md      # 단위/통합 테스트 결과
+.planning/           # 기획서·요구사항·WBS·일정
+.planning/decisions/ # ADR-0001 ~ 0003
+AGENTS.md            # AI Agent 활용 정책</pre>
+    <div class="card"><h3>재현 가능성 검증</h3>
+      <ul>
+        <li>새 환경에서 <b>clone → install → .env → start</b> 4단계 실행 확인</li>
+        <li>.env.example 제공 — API 키 없이도 구조 파악 가능</li>
+        <li>문서-코드 단일 저장소 → 커밋 이력(잔디)으로 진행 과정 추적</li>
+      </ul></div>
+  </div>
+</section>
+
+<!-- 17. 시연 데모 -->
+<section class="slide dark" data-notes="이제 30초 시연입니다. 실제 자기소개서를 붙여넣고 첨삭 시작을 누르겠습니다. (시연) 보시는 것처럼 결과가 실시간으로 흘러나오고, 100점 만점 채점, 잘된 점과 개선점, 그리고 첨삭 완성본까지 한 번에 제공됩니다. 마지막으로 면접 질문 예측 버튼을 눌러 이 자소서로 나올 질문 10개를 받는 장면을 보여드리겠습니다.|데모 0:30">
+  <div class="rubric"><span>데모 30초 +1</span><span>앱 형태 +1</span><span>기본 기능 +1</span><span>순차 전개 +1</span><span>임팩트 +1</span></div>
+  <div class="eyebrow">LIVE DEMO — 30s</div>
+  <h2>시연 시나리오 <span style="color:#9aa0ff">(사용자 여정 그대로)</span></h2>
+  <div class="demo-steps">
+    <div class="dstep"><div class="t">0–5s</div><h3>① 자소서 입력</h3><p>준비한 실제 자기소개서 붙여넣기 + 직무·회사 입력</p></div>
+    <div class="dstep"><div class="t">5–15s</div><h3>② 실시간 첨삭</h3><p>SSE 스트리밍 — 분석이 한 글자씩 화면에 흐르는 장면</p></div>
+    <div class="dstep"><div class="t">15–22s</div><h3>③ 점수 & 첨삭본</h3><p>100점 채점 4개 항목 + 개선점 + 완성된 첨삭본</p></div>
+    <div class="dstep"><div class="t">22–30s</div><h3>④ 임팩트 컷</h3><p><b>면접 질문 10개 예측</b> — "첨삭에서 면접 준비까지"</p></div>
+  </div>
+  <p class="sub" style="margin-top:18px;color:#a8aecb">백업 플랜: 네트워크 장애 대비 시연 녹화 영상 준비</p>
+</section>
+
+<!-- 18. 활용 방안 -->
+<section class="slide" data-notes="활용 방안입니다. 개인 취준생은 무료·무제한으로 제출 직전 최종 점검에 쓸 수 있고, 교내 취업지원센터의 상담 보조 도구나 자소서 특강 실습 도구로도 활용 가능합니다. 첨삭에서 끝나지 않고 면접 질문 예측, 회사 스타일 변환까지 취업 준비 전 과정을 커버합니다.|4:40–4:50">
+  <div class="rubric"><span>어떻게 활용할 것인가 +1</span></div>
+  <div class="eyebrow">USE CASES</div>
+  <h2>활용 방안 & 기대 효과</h2>
+  <div class="grid g3">
+    <div class="card"><h3>개인 취준생</h3><p>제출 직전 <b>최종 점검 루틴</b>. 첨삭 → 점수 비교 → 면접 질문 예측까지 한 번에. 비용 0원.</p></div>
+    <div class="card"><h3>교내 취업지원센터</h3><p>상담사의 <b>1차 스크리닝 보조 도구</b>. 상담 전 AI 분석 결과를 받아 상담 깊이 향상.</p></div>
+    <div class="card"><h3>자소서 특강·수업</h3><p>실습 도구로 활용 — 진부 표현 감지·차별화 분석으로 <b>즉각적 학습 피드백</b> 제공.</p></div>
+  </div>
+  <div class="card" style="margin-top:14px"><h3>기대 효과</h3><p>첨삭 1건 30초 이내 · 첨삭 비용 3~10만원 → <b>0원</b> · 한 세션 2회 이상 재첨삭 40%+ 목표</p></div>
+</section>
+
+<!-- 19. 마무리 -->
+<section class="slide" data-notes="마무리입니다. v1.0 핵심 기능은 모두 완료했고, v2.0에서는 첨삭 이력 저장과 버전 비교, 채용 공고 URL 기반 맞춤 분석, 모바일 반응형을 계획하고 있습니다. 이번 프로젝트로 SSE, 프롬프트 설계, API 비용 관리까지 배웠고, 앞으로도 AI Agent를 개발 워크플로우에 적극 활용하며 계속 개선해 나가겠습니다. 감사합니다. 질문 주시면 ADR 기준으로 답변드리겠습니다.|4:50–5:00">
+  <div class="rubric"><span>프로젝트 진행·완료 +1</span><span>기본소양 · 지속 학습 의지 +1</span></div>
+  <div class="eyebrow">CLOSING</div>
+  <h2>완료 현황 & 향후 발전 방향</h2>
+  <div class="grid g2">
+    <div class="card"><h3>✅ v1.0 — 완료</h3><ul>
+      <li>SSE 실시간 첨삭 + 100점 채점</li>
+      <li>면접 질문 예측 · 진부 표현 감지 · 차별화 분석</li>
+      <li>전후 점수 비교 · 회사 스타일 변환 · 공유 링크</li>
+      <li>문서화: 기획서 · WBS · ADR 3건 · setup/testing</li></ul></div>
+    <div class="card"><h3>🚀 v2.0 — 로드맵</h3><ul>
+      <li>첨삭 이력 저장 & 버전 비교</li>
+      <li>채용 공고 URL → 공고 맞춤 분석</li>
+      <li>항목별 분리 첨삭 · 모바일 반응형 · 영문 지원</li>
+      <li>AI Agent 워크플로우 기반 지속 개선</li></ul></div>
+  </div>
+  <h1 style="margin-top:34px;font-size:clamp(24px,3vw,38px)">감사합니다 — <span class="accent">질문은 ADR 기준으로 답변드리겠습니다.</span></h1>
+</section>
+
+<div id="notes"><div class="nt">발표 대본 <span class="nsec" id="nsec"></span></div><div id="ntext"></div></div>
+
+<script>
+(function(){
+  const slides=[...document.querySelectorAll('.slide')];
+  let i=0;
+  const counter=document.getElementById('counter'),
+        prog=document.getElementById('progress'),
+        notes=document.getElementById('notes'),
+        ntext=document.getElementById('ntext'),
+        nsec=document.getElementById('nsec');
+
+  function show(n){
+    i=Math.max(0,Math.min(slides.length-1,n));
+    slides.forEach((s,k)=>s.classList.toggle('active',k===i));
+    counter.textContent=(i+1)+' / '+slides.length;
+    prog.style.width=((i+1)/slides.length*100)+'%';
+    renderNotes();
+  }
+  function renderNotes(){
+    const raw=slides[i].dataset.notes||'';
+    const [txt,sec]=raw.split('|');
+    ntext.textContent=txt||'';
+    nsec.textContent=sec?('⏱ '+sec):'';
+  }
+  document.addEventListener('keydown',e=>{
+    if(e.key==='ArrowRight'||e.key===' '||e.key==='PageDown'){e.preventDefault();show(i+1);}
+    else if(e.key==='ArrowLeft'||e.key==='PageUp'){e.preventDefault();show(i-1);}
+    else if(e.key==='Home'){show(0);}
+    else if(e.key==='End'){show(slides.length-1);}
+    else if(e.key.toLowerCase()==='n'){notes.classList.toggle('show');}
+    else if(e.key.toLowerCase()==='t'){toggleTimer();}
+  });
+  document.addEventListener('click',e=>{
+    if(e.target.closest('#topbar')||e.target.closest('#notes'))return;
+    (e.clientX>window.innerWidth/2)?show(i+1):show(i-1);
+  });
+
+  /* ── 5분 타이머 ── */
+  let remain=300,tid=null;
+  const tEl=document.getElementById('timer'),tBtn=document.getElementById('tStart');
+  function fmt(s){const m=Math.floor(Math.abs(s)/60),x=Math.abs(s)%60;return (s<0?'+':'')+m+':'+String(x).padStart(2,'0');}
+  function paint(){
+    tEl.textContent=fmt(remain);
+    tEl.classList.toggle('warn',remain<=60&&remain>0);
+    tEl.classList.toggle('over',remain<=0);
+  }
+  window.toggleTimer=function(){
+    if(tid){clearInterval(tid);tid=null;tBtn.textContent='▶ 재개';return;}
+    tBtn.textContent='⏸ 일시정지';
+    tid=setInterval(()=>{remain--;paint();
+      if(remain===0){try{const c=new AudioContext(),o=c.createOscillator(),g=c.createGain();
+        o.connect(g);g.connect(c.destination);o.frequency.value=880;g.gain.value=.25;
+        o.start();setTimeout(()=>{o.stop();c.close();},700);}catch(e){}}
+    },1000);
+  };
+  window.resetTimer=function(){clearInterval(tid);tid=null;remain=300;tBtn.textContent='▶ 5:00 시작';paint();};
+  paint();show(0);
+})();
+</script>
+</body>
+</html>
