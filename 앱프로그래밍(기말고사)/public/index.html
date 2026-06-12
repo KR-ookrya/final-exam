@@ -1,0 +1,1548 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>자소서 AI — AI 자기소개서 첨삭</title>
+<link rel="stylesheet" href="style.css" />
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body>
+
+<!-- Navbar -->
+<nav class="navbar">
+  <div class="nav-inner">
+    <a class="nav-brand" href="#">
+      <span class="brand-mark">✍️</span>
+      <span class="brand-name">자소서 AI</span>
+    </a>
+    <div class="nav-actions">
+      <button class="history-btn" onclick="openHistory()">🕐 기록</button>
+      <button class="dark-toggle" id="darkToggle" onclick="toggleDark()" title="다크 모드">🌙</button>
+      <span class="nav-pill">Claude Sonnet 4.6</span>
+    </div>
+  </div>
+</nav>
+
+<!-- History Panel -->
+<div class="history-overlay" id="historyOverlay" onclick="closeHistory()"></div>
+<div class="history-panel" id="historyPanel">
+  <div class="history-panel-head">
+    <h3>📋 첨삭 기록</h3>
+    <button class="history-close" onclick="closeHistory()">✕</button>
+  </div>
+  <div class="history-compare-toolbar">
+    <button class="history-compare-btn" id="compareModeBtn" onclick="toggleCompareMode()">↔ 버전 비교</button>
+    <button class="history-compare-btn active hidden" id="compareSubmitBtn" onclick="submitCompare()" style="margin-left:auto" disabled>비교 실행 →</button>
+  </div>
+  <div class="history-list" id="historyList"></div>
+</div>
+
+<!-- Share Modal -->
+<div class="share-modal-overlay" id="shareOverlay">
+  <div class="share-modal">
+    <h4>🔗 공유 링크 생성됨</h4>
+    <p style="font-size:.83rem;color:var(--text-2);margin-bottom:14px;">링크는 24시간 동안 유효합니다.</p>
+    <div class="share-url-row">
+      <input class="share-url-input" id="shareUrlInput" readonly />
+      <button class="share-copy-btn" onclick="copyShareUrl()">복사</button>
+    </div>
+    <button class="share-modal-close" onclick="closeShareModal()">닫기</button>
+  </div>
+</div>
+
+<!-- Version Compare Modal -->
+<div class="compare-modal-overlay hidden" id="compareOverlay" onclick="if(event.target===this)closeCompare()">
+  <div class="compare-modal">
+    <div class="compare-modal-head">
+      <h4>📊 버전 비교</h4>
+      <button class="compare-modal-close" onclick="closeCompare()">✕</button>
+    </div>
+    <div class="compare-view" id="compareView"></div>
+  </div>
+</div>
+
+<!-- Template Library Modal -->
+<div class="template-modal-overlay hidden" id="templateOverlay" onclick="if(event.target===this)closeTemplates()">
+  <div class="template-modal">
+    <div class="template-modal-head">
+      <h4>📚 자기소개서 템플릿 라이브러리</h4>
+      <button class="compare-modal-close" onclick="closeTemplates()">✕</button>
+    </div>
+    <div class="template-body">
+      <div class="template-tabs" id="templateTabs"></div>
+      <div class="template-preview-area" id="templatePreviewArea"></div>
+    </div>
+    <div class="template-footer">
+      <span class="template-hint">💡 [ ] 안의 내용을 본인의 경험으로 교체하세요</span>
+      <button class="chat-send-btn" onclick="useTemplate()">이 템플릿 사용하기 →</button>
+    </div>
+  </div>
+</div>
+
+<div class="page">
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="hero-chip">무료 · 즉시 · 무제한</div>
+    <h1>합격률을 높이는<br/><em>AI 자기소개서 첨삭</em></h1>
+    <p class="hero-desc">지원 직무와 회사에 맞춘 심층 분석, 점수, 개선안,<br/>완성된 첨삭본까지 한 번에 받아보세요</p>
+  </section>
+
+  <!-- Input Card -->
+  <div class="card input-card">
+    <div class="card-head">
+      <div class="card-head-left">
+        <span class="step-dot">1</span>
+        <h2>자기소개서 입력</h2>
+      </div>
+      <span class="tip-text">Ctrl+Enter로 바로 분석</span>
+    </div>
+
+    <!-- Mode toggle -->
+    <div class="mode-toggle-row">
+      <span class="mode-toggle-label">문항 분리 모드 <span style="font-weight:400;color:var(--text-3)">(여러 문항을 각각 입력)</span></span>
+      <label class="mode-switch">
+        <input type="checkbox" id="modeSwitch" onchange="toggleMode()">
+        <span class="mode-switch-slider"></span>
+      </label>
+    </div>
+
+    <!-- Job / Company -->
+    <div class="meta-row" id="metaRow">
+      <div class="field-wrap">
+        <label for="jobTitle">지원 직무 <span class="opt-tag">선택</span></label>
+        <div class="input-wrap">
+          <span class="input-icon">💼</span>
+          <input type="text" id="jobTitle" placeholder="백엔드 개발자, 마케터, 디자이너..." autocomplete="off" />
+        </div>
+      </div>
+      <div class="field-wrap">
+        <label for="company">지원 회사 <span class="opt-tag">선택</span></label>
+        <div class="input-wrap">
+          <span class="input-icon">🏢</span>
+          <input type="text" id="company" placeholder="카카오, 삼성전자, 네이버..." autocomplete="off" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Single mode textarea -->
+    <div id="singleMode">
+      <div class="field-wrap">
+        <div class="textarea-label-row">
+          <label for="coverLetter">자기소개서 본문</label>
+          <div style="display:flex;align-items:center;gap:8px">
+            <button class="sample-btn" onclick="openTemplates()">📚 템플릿</button>
+            <button class="sample-btn" onclick="fillSample()">📄 예시</button>
+            <span class="char-badge" id="charBadge">0자</span>
+          </div>
+        </div>
+        <textarea
+          id="coverLetter"
+          rows="14"
+          placeholder="자기소개서 내용을 여기에 붙여넣으세요.&#10;&#10;최소 50자 이상 입력하면 분석을 시작할 수 있습니다."
+        ></textarea>
+        <div class="char-track"><div class="char-fill" id="charFill"></div></div>
+        <p class="char-hint" id="charHint">최소 50자 이상 입력해주세요</p>
+      </div>
+    </div>
+
+    <!-- Multi mode -->
+    <div id="multiMode" class="hidden">
+      <div class="questions-wrap" id="questionsWrap"></div>
+      <button class="add-q-btn" onclick="addQuestion()">＋ 문항 추가</button>
+    </div>
+
+    <!-- Char limit -->
+    <div class="limit-row">
+      <label for="limitInput">글자수 제한</label>
+      <input type="number" class="limit-input" id="limitInput" placeholder="예: 1000" min="100" max="9999" />
+      <span class="limit-warn" id="limitWarn">⚠ 글자수 초과</span>
+    </div>
+
+    <button id="analyzeBtn" onclick="analyze()">
+      <span id="btnIcon" class="btn-icon-wrap">🔍</span>
+      <span id="btnText">첨삭 시작하기</span>
+      <span class="btn-arrow">→</span>
+    </button>
+  </div>
+
+  <!-- Result Section -->
+  <section id="resultSection" class="result-section hidden">
+
+    <div class="result-top-row">
+      <div class="result-top-left">
+        <span class="step-dot step-dot--purple">2</span>
+        <h2>첨삭 결과</h2>
+        <span class="score-delta hidden" id="scoreDelta"></span>
+      </div>
+      <div class="result-toolbar">
+        <button class="toolbar-btn" id="kwBtn" onclick="toggleKeywords()" title="키워드 강조">🔑 키워드</button>
+        <button class="toolbar-btn" id="diffBtn" onclick="toggleDiff()" title="원본 vs 첨삭 비교">↔ 비교</button>
+        <button class="toolbar-btn" id="interviewBtn" onclick="generateInterview()">🎤 면접 질문</button>
+        <button class="toolbar-btn" id="clicheBtn" onclick="detectCliches()">🔍 진부한 표현</button>
+        <button class="toolbar-btn" id="diffAnalBtn" onclick="analyzeDifferentiation()">👥 차별화 분석</button>
+        <button class="toolbar-btn" id="scorePredBtn" onclick="predictScore()">📈 점수 예측</button>
+        <button class="toolbar-btn" id="styleBtn" onclick="openStyleAdapt()">🎨 스타일 맞춤</button>
+        <button class="toolbar-btn" onclick="openChat()">💬 AI 채팅</button>
+        <button class="toolbar-btn" onclick="printResult()">📄 PDF</button>
+        <button class="toolbar-btn" onclick="downloadResult()">⬇ 다운로드</button>
+        <button class="toolbar-btn" onclick="shareResult()">🔗 공유</button>
+        <button class="toolbar-btn copy-btn" onclick="copyResult()">📋 복사</button>
+      </div>
+    </div>
+
+    <!-- Diff view -->
+    <div id="diffView" class="hidden">
+      <div class="diff-view">
+        <div class="diff-pane">
+          <div class="diff-pane-head orig">원본</div>
+          <div class="diff-pane-body" id="diffOrig"></div>
+        </div>
+        <div class="diff-pane">
+          <div class="diff-pane-head revised">첨삭본</div>
+          <div class="diff-pane-body" id="diffRevised"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Loading -->
+    <div id="loadingCard" class="card loading-card">
+      <div class="loading-dots"><span></span><span></span><span></span></div>
+      <p class="loading-text">Claude AI가 자기소개서를 분석하는 중입니다...</p>
+    </div>
+
+    <!-- Streaming -->
+    <div id="streamCard" class="card stream-card hidden">
+      <div class="stream-header">
+        <span class="live-badge">●</span>
+        <span>실시간 분석 중</span>
+      </div>
+      <div id="streamContent" class="stream-content"></div>
+      <span id="cursor" class="cursor"></span>
+    </div>
+
+    <!-- Final cards -->
+    <div id="resultCards" class="result-cards hidden"></div>
+
+    <!-- Feature 1: Interview Questions -->
+    <div id="interviewSection" class="hidden" style="margin-top:14px">
+      <div class="rcard rcard--interview">
+        <div class="rcard-head" style="display:flex;align-items:center;justify-content:space-between">
+          <span class="rcard-title">면접 질문 예측</span>
+          <button class="toolbar-btn" onclick="document.getElementById('interviewSection').classList.add('hidden');document.getElementById('interviewBtn').classList.remove('active')" style="padding:4px 10px;font-size:0.75rem">✕ 닫기</button>
+        </div>
+        <div id="interviewContent" class="rcard-body"></div>
+      </div>
+    </div>
+
+    <!-- Feature 2: Cliche Detection -->
+    <div id="clicheSection" class="hidden" style="margin-top:14px">
+      <div class="rcard rcard--cliche">
+        <div class="rcard-head" style="display:flex;align-items:center;justify-content:space-between">
+          <span class="rcard-title">진부한 표현 감지</span>
+          <button class="toolbar-btn" onclick="document.getElementById('clicheSection').classList.add('hidden');document.getElementById('clicheBtn').classList.remove('active')" style="padding:4px 10px;font-size:0.75rem">✕ 닫기</button>
+        </div>
+        <div id="clicheContent" class="rcard-body"></div>
+      </div>
+    </div>
+
+    <!-- Feature 6: AI Chat -->
+    <div id="chatSection" class="hidden" style="margin-top:14px">
+      <div class="card chat-card">
+        <div class="card-head" style="margin-bottom:16px">
+          <div class="card-head-left">
+            <span class="step-dot" style="background:linear-gradient(135deg,#7c3aed,#a855f7)">💬</span>
+            <h2>AI에게 더 물어보기</h2>
+          </div>
+          <button class="toolbar-btn" onclick="toggleChat()">✕ 닫기</button>
+        </div>
+        <div id="chatMessages" class="chat-messages"></div>
+        <div class="chat-input-row">
+          <input type="text" id="chatInput" class="chat-input" placeholder="첨삭 결과에 대해 질문하세요... (Ctrl+Enter)" onkeydown="if((event.ctrlKey||event.metaKey)&&event.key==='Enter')sendChat()" />
+          <button class="chat-send-btn" id="chatSendBtn" onclick="sendChat()">전송</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Feature: Differentiate Analysis -->
+    <div id="differentiateSection" class="hidden" style="margin-top:14px">
+      <div class="rcard rcard--differentiate">
+        <div class="rcard-head" style="display:flex;align-items:center;justify-content:space-between">
+          <span class="rcard-title">경쟁자 차별화 분석</span>
+          <button class="toolbar-btn" onclick="document.getElementById('differentiateSection').classList.add('hidden');document.getElementById('diffAnalBtn').classList.remove('active')" style="padding:4px 10px;font-size:0.75rem">✕ 닫기</button>
+        </div>
+        <div id="differentiateContent" class="rcard-body"></div>
+      </div>
+    </div>
+
+    <!-- Feature: Score Predict -->
+    <div id="scorePredictSection" class="hidden" style="margin-top:14px">
+      <div class="rcard rcard--scorepredict">
+        <div class="rcard-head" style="display:flex;align-items:center;justify-content:space-between">
+          <span class="rcard-title">첨삭 전후 점수 변화 예측</span>
+          <button class="toolbar-btn" onclick="document.getElementById('scorePredictSection').classList.add('hidden');document.getElementById('scorePredBtn').classList.remove('active')" style="padding:4px 10px;font-size:0.75rem">✕ 닫기</button>
+        </div>
+        <div id="scorePredictContent" class="rcard-body"></div>
+      </div>
+    </div>
+
+    <!-- Feature: Style Adapt -->
+    <div id="styleSection" class="hidden" style="margin-top:14px">
+      <div class="rcard rcard--style">
+        <div class="rcard-head" style="display:flex;align-items:center;justify-content:space-between">
+          <span class="rcard-title">회사 스타일 맞춤 변환</span>
+          <button class="toolbar-btn" onclick="document.getElementById('styleSection').classList.add('hidden');document.getElementById('styleBtn').classList.remove('active')" style="padding:4px 10px;font-size:0.75rem">✕ 닫기</button>
+        </div>
+        <div class="rcard-body">
+          <div class="style-selector">
+            <button class="style-opt-btn active" data-style="대기업/공기업" onclick="selectStyleOpt(this)">🏢 대기업/공기업</button>
+            <button class="style-opt-btn" data-style="스타트업" onclick="selectStyleOpt(this)">🚀 스타트업</button>
+            <button class="style-opt-btn" data-style="외국계 기업" onclick="selectStyleOpt(this)">🌏 외국계</button>
+            <button class="style-opt-btn" data-style="IT 기업" onclick="selectStyleOpt(this)">💻 IT 기업</button>
+          </div>
+          <button class="style-convert-btn" id="styleConvertBtn" onclick="convertStyle()">✨ 스타일 변환하기</button>
+          <div id="styleResult" class="hidden" style="margin-top:14px">
+            <div class="style-result-head">
+              <span id="styleResultLabel">변환 결과</span>
+              <button class="toolbar-btn" onclick="copyStyleResult()" style="padding:4px 10px;font-size:0.75rem">📋 복사</button>
+            </div>
+            <div id="styleResultContent" class="style-result-body"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </section>
+
+</div>
+
+<footer class="footer">
+  <p>Powered by <strong>Claude Sonnet 4.6</strong> · Anthropic AI</p>
+</footer>
+
+<script>
+marked.setOptions({ breaks: true, gfm: true });
+
+async function safeJson(res) {
+  try { return await res.json(); } catch { return {}; }
+}
+async function checkOk(res) {
+  if (!res.ok) throw new Error((await safeJson(res)).error || `서버 오류가 발생했습니다. (${res.status})`);
+}
+
+/* ══════════════════════════════════════════════
+   STATE
+══════════════════════════════════════════════ */
+let fullText      = '';
+let originalText  = '';
+let revisedText   = '';
+let prevScore     = null;
+let kwActive      = false;
+let diffActive    = false;
+let multiMode     = false;
+let questionCount = 1;
+let compareMode   = false;
+let compareSelects = [];
+let chatMessages  = [];
+let selectedStyle  = '대기업/공기업';
+let currentTplKey  = '';
+
+/* ══════════════════════════════════════════════
+   DARK MODE
+══════════════════════════════════════════════ */
+function toggleDark() {
+  const on = document.body.classList.toggle('dark');
+  document.getElementById('darkToggle').textContent = on ? '☀️' : '🌙';
+  localStorage.setItem('darkMode', on ? '1' : '0');
+}
+(function initDark() {
+  if (localStorage.getItem('darkMode') === '1') {
+    document.body.classList.add('dark');
+    document.getElementById('darkToggle').textContent = '☀️';
+  }
+})();
+
+/* ══════════════════════════════════════════════
+   HISTORY
+══════════════════════════════════════════════ */
+function openHistory()  {
+  renderHistory();
+  document.getElementById('historyPanel').classList.add('open');
+  document.getElementById('historyOverlay').classList.add('open');
+}
+function closeHistory() {
+  document.getElementById('historyPanel').classList.remove('open');
+  document.getElementById('historyOverlay').classList.remove('open');
+}
+
+function getHistory() {
+  try { return JSON.parse(localStorage.getItem('jaso_history') || '[]'); } catch { return []; }
+}
+function saveHistory(h) { localStorage.setItem('jaso_history', JSON.stringify(h.slice(0, 30))); }
+
+function addToHistory(entry) {
+  const h = getHistory();
+  h.unshift({ id: Date.now(), ...entry });
+  saveHistory(h);
+}
+
+function deleteHistory(id) {
+  saveHistory(getHistory().filter(e => e.id !== id));
+  renderHistory();
+}
+
+function renderHistory() {
+  const list = document.getElementById('historyList');
+  const h    = getHistory();
+  if (!h.length) {
+    list.innerHTML = '<p class="history-empty">아직 첨삭 기록이 없습니다.</p>';
+    return;
+  }
+  list.innerHTML = h.map(e => {
+    const clickAttr  = compareMode ? '' : `onclick="loadHistory(${e.id})"`;
+    const cursorStyle = compareMode ? 'cursor:default' : '';
+    const checkHtml  = compareMode
+      ? `<input type="checkbox" class="history-item-check" onchange="onCompareToggle(${e.id},this)" onclick="event.stopPropagation()" ${compareSelects.includes(e.id) ? 'checked' : ''} />`
+      : '';
+    const delBtn = compareMode ? '' : `<button class="history-item-del" onclick="event.stopPropagation();deleteHistory(${e.id})">삭제</button>`;
+    return `
+    <div class="history-item" ${clickAttr} style="${cursorStyle}">
+      <div class="history-item-top">
+        ${checkHtml}
+        <span class="history-item-title">${e.jobTitle || '직무 미입력'}${e.company ? ' · ' + e.company : ''}</span>
+        ${e.score ? `<span class="history-item-score">${e.score}점</span>` : ''}
+      </div>
+      <div class="history-item-meta">
+        ${new Date(e.id).toLocaleString('ko-KR', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' })}
+        &nbsp;·&nbsp; ${(e.originalText||'').slice(0,30).replace(/\n/g,' ')}...
+        ${delBtn}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function loadHistory(id) {
+  const e = getHistory().find(x => x.id === id);
+  if (!e) return;
+  closeHistory();
+
+  document.getElementById('jobTitle').value   = e.jobTitle || '';
+  document.getElementById('company').value    = e.company  || '';
+  document.getElementById('coverLetter').value = e.originalText || '';
+  updateChar();
+
+  fullText     = e.fullText    || '';
+  originalText = e.originalText || '';
+  revisedText  = e.revisedText  || '';
+
+  if (fullText) {
+    const resultSec = document.getElementById('resultSection');
+    resultSec.classList.remove('hidden');
+    document.getElementById('loadingCard').classList.add('hidden');
+    document.getElementById('streamCard').classList.add('hidden');
+    renderResultCards(fullText);
+    showToast('기록을 불러왔습니다.');
+  }
+}
+
+/* ══════════════════════════════════════════════
+   MODE TOGGLE (single / multi-question)
+══════════════════════════════════════════════ */
+function toggleMode() {
+  multiMode = document.getElementById('modeSwitch').checked;
+  document.getElementById('singleMode').classList.toggle('hidden', multiMode);
+  document.getElementById('multiMode').classList.toggle('hidden', !multiMode);
+  if (multiMode && document.getElementById('questionsWrap').children.length === 0) {
+    addQuestion(); addQuestion();
+  }
+}
+
+function addQuestion() {
+  questionCount++;
+  const wrap = document.getElementById('questionsWrap');
+  const n    = wrap.children.length + 1;
+  const div  = document.createElement('div');
+  div.className   = 'question-block';
+  div.dataset.idx = n;
+  div.innerHTML = `
+    <div class="question-label-row">
+      <span class="question-label">문항 ${n}</span>
+      <button class="remove-q-btn" onclick="removeQuestion(this)">✕ 삭제</button>
+    </div>
+    <textarea rows="5" placeholder="문항 ${n} 내용을 입력하세요..." style="margin-bottom:0"></textarea>`;
+  wrap.appendChild(div);
+}
+
+function removeQuestion(btn) {
+  const block = btn.closest('.question-block');
+  if (document.getElementById('questionsWrap').children.length <= 1) return;
+  block.remove();
+  document.querySelectorAll('.question-block').forEach((b, i) => {
+    b.querySelector('.question-label').textContent = `문항 ${i+1}`;
+    b.querySelector('textarea').placeholder = `문항 ${i+1} 내용을 입력하세요...`;
+  });
+}
+
+function getInputText() {
+  if (!multiMode) return document.getElementById('coverLetter').value.trim();
+  return Array.from(document.querySelectorAll('#questionsWrap textarea'))
+    .map((ta, i) => `[문항 ${i+1}]\n${ta.value.trim()}`)
+    .filter(t => t.length > 10)
+    .join('\n\n');
+}
+
+/* ══════════════════════════════════════════════
+   CHAR COUNT & LIMIT
+══════════════════════════════════════════════ */
+const MIN      = 50;
+const SOFT_MAX = 1500;
+
+const textarea  = document.getElementById('coverLetter');
+const charBadge = document.getElementById('charBadge');
+const charFill  = document.getElementById('charFill');
+const charHint  = document.getElementById('charHint');
+
+textarea.addEventListener('input', updateChar);
+
+function updateChar() {
+  const len   = textarea.value.length;
+  const limit = parseInt(document.getElementById('limitInput').value) || 0;
+  charBadge.textContent     = len.toLocaleString() + '자';
+  charFill.style.width      = Math.min((len / SOFT_MAX) * 100, 100) + '%';
+
+  if (len === 0) {
+    charHint.textContent = '최소 50자 이상 입력해주세요';
+    charHint.className   = 'char-hint';
+    charFill.style.background = '';
+  } else if (len < MIN) {
+    charHint.textContent = `${MIN - len}자 더 입력해주세요`;
+    charHint.className   = 'char-hint hint-warn';
+    charFill.style.background = '#f59e0b';
+  } else {
+    charHint.textContent = '✓ 분석 준비 완료';
+    charHint.className   = 'char-hint hint-ok';
+    charFill.style.background = '#10b981';
+  }
+
+  const warn = document.getElementById('limitWarn');
+  if (limit > 0 && len > limit) warn.classList.add('show');
+  else warn.classList.remove('show');
+}
+
+document.getElementById('limitInput').addEventListener('input', updateChar);
+
+/* ══════════════════════════════════════════════
+   SAMPLE COVER LETTER
+══════════════════════════════════════════════ */
+const SAMPLE = `저는 컴퓨터공학을 전공하며 웹 개발에 깊은 관심을 가져왔습니다. 대학 재학 중 세 개의 팀 프로젝트를 주도하며 리더십과 협업 능력을 키웠고, React와 Node.js를 활용한 풀스택 개발 경험을 쌓았습니다.
+
+특히 졸업 프로젝트에서 AI 기반 학습 플랫폼을 개발하며 사용자 경험 개선에 집중했습니다. 매주 스프린트 회의를 직접 주관하고 팀원 간 역할을 조율하면서 프로젝트를 기한 내에 성공적으로 마무리했습니다.
+
+귀사의 개발 문화와 기술 스택에 매력을 느끼며, 보유한 역량을 바탕으로 팀에 기여하고 싶습니다. 입사 이후에도 꾸준히 성장하며 함께 발전해 나가고 싶습니다.`;
+
+function fillSample() {
+  textarea.value = SAMPLE;
+  updateChar();
+  showToast('예시 자소서를 불러왔습니다.');
+}
+
+/* ══════════════════════════════════════════════
+   ANALYZE
+══════════════════════════════════════════════ */
+async function analyze() {
+  const text     = getInputText();
+  const jobTitle = document.getElementById('jobTitle').value.trim();
+  const company  = document.getElementById('company').value.trim();
+
+  if (text.length < MIN) {
+    showToast('자기소개서를 최소 50자 이상 입력해주세요.');
+    if (!multiMode) textarea.focus();
+    return;
+  }
+
+  originalText = text;
+
+  const btn         = document.getElementById('analyzeBtn');
+  const btnIcon     = document.getElementById('btnIcon');
+  const btnText_el  = document.getElementById('btnText');
+  const resultSec   = document.getElementById('resultSection');
+  const loadingCard = document.getElementById('loadingCard');
+  const streamCard  = document.getElementById('streamCard');
+  const streamCont  = document.getElementById('streamContent');
+  const cursorEl    = document.getElementById('cursor');
+  const resultCards = document.getElementById('resultCards');
+  const diffView    = document.getElementById('diffView');
+
+  btn.disabled = true;
+  btnIcon.textContent = '⏳';
+  btnIcon.classList.add('spinning');
+  btnText_el.textContent = '분석 중...';
+
+  resultSec.classList.remove('hidden');
+  loadingCard.classList.remove('hidden');
+  streamCard.classList.add('hidden');
+  resultCards.classList.add('hidden');
+  diffView.classList.add('hidden');
+  resultCards.innerHTML = '';
+  streamCont.innerHTML  = '';
+  cursorEl.style.display = '';
+  fullText   = '';
+  revisedText = '';
+  diffActive = false;
+  kwActive   = false;
+  document.getElementById('diffBtn').classList.remove('active');
+  document.getElementById('kwBtn').classList.remove('active');
+  document.getElementById('scoreDelta').classList.add('hidden');
+  document.getElementById('interviewSection').classList.add('hidden');
+  document.getElementById('clicheSection').classList.add('hidden');
+  document.getElementById('chatSection').classList.add('hidden');
+  document.getElementById('interviewBtn').classList.remove('active');
+  document.getElementById('clicheBtn').classList.remove('active');
+  chatMessages = [];
+  document.getElementById('chatMessages').innerHTML = '';
+  document.getElementById('differentiateSection').classList.add('hidden');
+  document.getElementById('scorePredictSection').classList.add('hidden');
+  document.getElementById('styleSection').classList.add('hidden');
+  document.getElementById('diffAnalBtn').classList.remove('active');
+  document.getElementById('scorePredBtn').classList.remove('active');
+  document.getElementById('styleBtn').classList.remove('active');
+  document.getElementById('styleResult').classList.add('hidden');
+  document.getElementById('styleResultContent').textContent = '';
+
+  resultSec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  try {
+    const res = await fetch('/api/analyze', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ text, jobTitle, company }),
+    });
+
+    await checkOk(res);
+
+    loadingCard.classList.add('hidden');
+    streamCard.classList.remove('hidden');
+
+    const reader  = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '', done = false;
+
+    while (!done) {
+      const { done: d, value } = await reader.read();
+      if (d) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const payload = line.slice(6);
+        if (payload === '[DONE]') { done = true; break; }
+        try {
+          const { text: chunk, error } = JSON.parse(payload);
+          if (error) throw new Error(error);
+          if (chunk) {
+            fullText += chunk;
+            streamCont.innerHTML = marked.parse(fullText);
+          }
+        } catch (e) {
+          if (e.message !== 'Unexpected end of JSON input') throw e;
+        }
+      }
+    }
+
+    cursorEl.style.display = 'none';
+    streamCard.classList.add('hidden');
+    renderResultCards(fullText);
+
+    // extract revised text for diff
+    revisedText = extractRevised(fullText);
+
+    // score comparison
+    const score = extractTotalScore(fullText);
+    if (prevScore !== null && score !== null) {
+      const delta    = score - prevScore;
+      const deltaEl  = document.getElementById('scoreDelta');
+      deltaEl.classList.remove('hidden', 'up', 'down', 'same');
+      if (delta > 0)      { deltaEl.textContent = `▲ +${delta}점`; deltaEl.classList.add('up'); }
+      else if (delta < 0) { deltaEl.textContent = `▼ ${delta}점`;  deltaEl.classList.add('down'); }
+      else                { deltaEl.textContent = `= 동일`;          deltaEl.classList.add('same'); }
+    }
+    if (score !== null) prevScore = score;
+
+    // save to history
+    addToHistory({ jobTitle, company, score, fullText, originalText, revisedText });
+
+  } catch (err) {
+    loadingCard.classList.add('hidden');
+    streamCard.classList.add('hidden');
+    resultCards.innerHTML = `<div class="error-card">❌ ${err.message}</div>`;
+    resultCards.classList.remove('hidden');
+  } finally {
+    btn.disabled = false;
+    btnIcon.textContent = '🔍';
+    btnIcon.classList.remove('spinning');
+    btnText_el.textContent = '다시 첨삭하기';
+  }
+}
+
+/* ══════════════════════════════════════════════
+   SECTION PARSING & CARDS
+══════════════════════════════════════════════ */
+function parseSections(md) {
+  const parts = md.split(/^(## .+)$/m);
+  const out = [];
+  for (let i = 1; i < parts.length; i += 2)
+    out.push({ heading: parts[i].replace(/^## /, '').trim(), body: (parts[i+1]||'').trim() });
+  return out;
+}
+
+function sectionType(h) {
+  if (h.includes('종합 평가')) return 'overview';
+  if (h.includes('점수'))     return 'score';
+  if (h.includes('잘된'))     return 'good';
+  if (h.includes('개선'))     return 'improve';
+  if (h.includes('첨삭된'))   return 'revised';
+  return 'default';
+}
+
+function renderResultCards(md) {
+  const container = document.getElementById('resultCards');
+  container.innerHTML = '';
+  const jobTitle = document.getElementById('jobTitle').value.trim();
+  const company  = document.getElementById('company').value.trim();
+  const keywords = buildKeywords(jobTitle, company, md);
+
+  parseSections(md).forEach(sec => {
+    const type = sectionType(sec.heading);
+    const card = document.createElement('div');
+    card.className = `rcard rcard--${type}`;
+
+    const head = document.createElement('div');
+    head.className = 'rcard-head';
+    head.innerHTML = `<span class="rcard-title">${sec.heading}</span>`;
+
+    const body = document.createElement('div');
+    body.className = 'rcard-body';
+
+    if (type === 'score') {
+      body.innerHTML = buildScoreHTML(sec.body);
+    } else if (type === 'revised') {
+      body.innerHTML = buildRevisedHTML(sec.body, jobTitle, company);
+    } else {
+      body.innerHTML = marked.parse(sec.body);
+    }
+
+    card.appendChild(head);
+    card.appendChild(body);
+    container.appendChild(card);
+  });
+
+  container.classList.remove('hidden');
+
+  requestAnimationFrame(() => {
+    document.querySelectorAll('.sbar-fill[data-w]').forEach(el => { el.style.width = el.dataset.w; });
+  });
+
+  container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+/* revised section with re-edit buttons */
+function buildRevisedHTML(body, jobTitle, company) {
+  const paras = body.split(/\n\n+/);
+  return paras.map(p => {
+    const escaped = p.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const rawB64  = btoa(encodeURIComponent(p));
+    return `<div class="para-wrap">
+      <span>${escaped}</span>
+      <button class="rewrite-btn" onclick="rewriteParagraph(this,'${rawB64}')">✏️ 재첨삭</button>
+      <div class="rewrite-result hidden"></div>
+    </div>`;
+  }).join('\n');
+}
+
+/* ══════════════════════════════════════════════
+   RE-EDIT PARAGRAPH
+══════════════════════════════════════════════ */
+async function rewriteParagraph(btn, rawB64) {
+  const paragraph = decodeURIComponent(atob(rawB64));
+  const jobTitle  = document.getElementById('jobTitle').value.trim();
+  const company   = document.getElementById('company').value.trim();
+  const resultBox = btn.nextElementSibling;
+
+  btn.classList.add('loading');
+  btn.textContent = '⏳ 재첨삭 중...';
+  resultBox.classList.remove('hidden');
+  resultBox.textContent = '';
+
+  try {
+    const res = await fetch('/api/rewrite', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ paragraph, jobTitle, company }),
+    });
+    await checkOk(res);
+
+    const reader  = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '', text = '', done = false;
+
+    while (!done) {
+      const { done: d, value } = await reader.read();
+      if (d) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const pl = line.slice(6);
+        if (pl === '[DONE]') { done = true; break; }
+        try {
+          const { text: chunk, error } = JSON.parse(pl);
+          if (error) throw new Error(error);
+          if (chunk) { text += chunk; resultBox.textContent = text; }
+        } catch {}
+      }
+    }
+  } catch (err) {
+    resultBox.textContent = '❌ ' + err.message;
+  } finally {
+    btn.classList.remove('loading');
+    btn.textContent = '✏️ 재첨삭';
+  }
+}
+
+/* ══════════════════════════════════════════════
+   SCORE UI
+══════════════════════════════════════════════ */
+function scoreColor(p) { return p >= 80 ? '#10b981' : p >= 60 ? '#f59e0b' : '#ef4444'; }
+function scoreGrade(p) { return p >= 90 ? 'S' : p >= 80 ? 'A' : p >= 70 ? 'B' : p >= 60 ? 'C' : 'D'; }
+
+function extractTotalScore(md) {
+  const m = md.match(/전체 완성도.*?(\d+)점/);
+  return m ? parseInt(m[1]) : null;
+}
+
+function buildScoreHTML(body) {
+  const totalM = body.match(/전체 완성도.*?(\d+)점/);
+  const total  = totalM ? parseInt(totalM[1]) : null;
+  const subRe  = /(내용의 구체성|문장 표현력|직무 적합성|차별화 포인트)[^0-9]*(\d+)점/g;
+  const subs   = [];
+  let m;
+  while ((m = subRe.exec(body)) !== null) subs.push({ label: m[1], score: parseInt(m[2]), max: 25 });
+  if (total === null && subs.length === 0) return marked.parse(body);
+
+  let html = '';
+  if (total !== null) {
+    const c = scoreColor(total), deg = Math.round(total * 3.6);
+    html += `<div class="score-summary">
+      <div class="score-ring" style="background:conic-gradient(${c} ${deg}deg,#e4e8f0 0deg)">
+        <div class="score-ring-inner">
+          <span class="score-big">${total}</span>
+          <span class="score-small">/ 100</span>
+        </div>
+      </div>
+      <div class="score-meta">
+        <div class="score-grade" style="color:${c}">${scoreGrade(total)}등급</div>
+        <div class="score-desc">전체 완성도</div>
+      </div>
+    </div>`;
+  }
+  if (subs.length) {
+    html += '<div class="score-bars">';
+    subs.forEach(s => {
+      const pct = Math.round((s.score / s.max) * 100), c = scoreColor(pct);
+      html += `<div class="sbar-item">
+        <div class="sbar-meta">
+          <span class="sbar-label">${s.label}</span>
+          <span class="sbar-val" style="color:${c}">${s.score}<em>/${s.max}</em></span>
+        </div>
+        <div class="sbar-track"><div class="sbar-fill" data-w="${pct}%" style="width:0%;background:${c}"></div></div>
+      </div>`;
+    });
+    html += '</div>';
+  }
+  return html;
+}
+
+/* ══════════════════════════════════════════════
+   KEYWORD HIGHLIGHT
+══════════════════════════════════════════════ */
+function buildKeywords(jobTitle, company, md) {
+  const base = [jobTitle, company].filter(Boolean);
+  const extras = (md.match(/\*\*([^*]{2,8})\*\*/g) || []).map(s => s.replace(/\*/g,''));
+  return [...new Set([...base, ...extras.slice(0,10)])].filter(k => k.length >= 2);
+}
+
+function highlightText(html, keywords) {
+  if (!keywords.length) return html;
+  const re = new RegExp(`(${keywords.map(k => k.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|')})`, 'gi');
+  return html.replace(re, '<mark class="kw-highlight">$1</mark>');
+}
+
+function toggleKeywords() {
+  kwActive = !kwActive;
+  document.getElementById('kwBtn').classList.toggle('active', kwActive);
+  const jobTitle = document.getElementById('jobTitle').value.trim();
+  const company  = document.getElementById('company').value.trim();
+  const keywords = kwActive ? buildKeywords(jobTitle, company, fullText) : [];
+
+  document.querySelectorAll('.rcard-body').forEach(el => {
+    if (kwActive) {
+      el.dataset.origHtml = el.innerHTML;
+      el.innerHTML = highlightText(el.innerHTML, keywords);
+    } else {
+      if (el.dataset.origHtml) el.innerHTML = el.dataset.origHtml;
+    }
+  });
+}
+
+/* ══════════════════════════════════════════════
+   DIFF VIEW
+══════════════════════════════════════════════ */
+function extractRevised(md) {
+  const m = md.match(/## .*?첨삭된[^\n]*\n([\s\S]*?)(?=\n##|$)/);
+  return m ? m[1].trim() : '';
+}
+
+function toggleDiff() {
+  diffActive = !diffActive;
+  document.getElementById('diffBtn').classList.toggle('active', diffActive);
+  const view = document.getElementById('diffView');
+  if (diffActive) {
+    renderDiff();
+    view.classList.remove('hidden');
+  } else {
+    view.classList.add('hidden');
+  }
+}
+
+function renderDiff() {
+  const orig    = originalText;
+  const revised = revisedText || extractRevised(fullText);
+
+  const origParas    = orig.split(/\n\n+/);
+  const revisedParas = revised.split(/\n\n+/);
+
+  document.getElementById('diffOrig').innerHTML =
+    origParas.map(p => `<p>${esc(p)}</p>`).join('');
+
+  document.getElementById('diffRevised').innerHTML =
+    revisedParas.map((p, i) => {
+      const cls = origParas[i] && origParas[i].trim() !== p.trim() ? ' class="diff-add"' : '';
+      return `<p${cls}>${esc(p)}</p>`;
+    }).join('');
+}
+
+function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+/* ══════════════════════════════════════════════
+   DOWNLOAD
+══════════════════════════════════════════════ */
+function downloadResult() {
+  if (!fullText) return;
+  const jobTitle = document.getElementById('jobTitle').value.trim();
+  const company  = document.getElementById('company').value.trim();
+  const filename = `자소서_첨삭_${jobTitle || '결과'}_${new Date().toISOString().slice(0,10)}.txt`;
+  const header   = `자소서 AI 첨삭 결과\n직무: ${jobTitle || '-'} / 회사: ${company || '-'}\n날짜: ${new Date().toLocaleString('ko-KR')}\n${'='.repeat(50)}\n\n`;
+  const blob = new Blob([header + fullText], { type: 'text/plain;charset=utf-8' });
+  const a    = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: filename });
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+/* ══════════════════════════════════════════════
+   SHARE
+══════════════════════════════════════════════ */
+async function shareResult() {
+  if (!fullText) return;
+  const jobTitle = document.getElementById('jobTitle').value.trim();
+  const company  = document.getElementById('company').value.trim();
+  const score    = extractTotalScore(fullText);
+
+  try {
+    const res  = await fetch('/api/share', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ result: fullText, jobTitle, company, score }),
+    });
+    const { id, error } = await res.json();
+    if (error) throw new Error(error);
+
+    const url = `${location.origin}/share/${id}`;
+    document.getElementById('shareUrlInput').value = url;
+    document.getElementById('shareOverlay').classList.add('open');
+  } catch (err) {
+    showToast('공유 링크 생성 실패: ' + err.message);
+  }
+}
+
+function copyShareUrl() {
+  const input = document.getElementById('shareUrlInput');
+  navigator.clipboard.writeText(input.value).then(() => showToast('링크가 복사되었습니다.'));
+}
+
+function closeShareModal() {
+  document.getElementById('shareOverlay').classList.remove('open');
+}
+
+/* check for shared result on load */
+(async function checkShare() {
+  const m = location.pathname.match(/^\/share\/([a-f0-9]{12})$/);
+  if (!m) return;
+  try {
+    const res = await fetch(`/api/share/${m[1]}`);
+    if (!res.ok) return;
+    const { result, jobTitle, company } = await res.json();
+    document.getElementById('jobTitle').value = jobTitle || '';
+    document.getElementById('company').value  = company  || '';
+    fullText = result;
+    document.getElementById('resultSection').classList.remove('hidden');
+    document.getElementById('loadingCard').classList.add('hidden');
+    renderResultCards(result);
+    revisedText = extractRevised(result);
+    showToast('공유된 첨삭 결과를 불러왔습니다.');
+  } catch {}
+})();
+
+/* ══════════════════════════════════════════════
+   COPY & TOAST
+══════════════════════════════════════════════ */
+function copyResult() {
+  if (!fullText) return;
+  navigator.clipboard.writeText(fullText).then(() => showToast('결과가 클립보드에 복사되었습니다.'));
+}
+
+function showToast(msg) {
+  document.querySelector('.toast')?.remove();
+  const t = document.createElement('div');
+  t.className   = 'toast';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.classList.add('show'), 10);
+  setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 300); }, 2800);
+}
+
+/* ══════════════════════════════════════════════
+   KEYBOARD
+══════════════════════════════════════════════ */
+textarea.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') analyze();
+});
+
+/* ══════════════════════════════════════════════
+   FEATURE 1: 면접 질문 예측
+══════════════════════════════════════════════ */
+async function generateInterview() {
+  if (!originalText) { showToast('먼저 자기소개서를 분석해주세요.'); return; }
+  const jobTitle = document.getElementById('jobTitle').value.trim();
+  const company  = document.getElementById('company').value.trim();
+  const sec      = document.getElementById('interviewSection');
+  const content  = document.getElementById('interviewContent');
+  const btn      = document.getElementById('interviewBtn');
+
+  sec.classList.remove('hidden');
+  btn.classList.add('active');
+  content.innerHTML = '<div class="loading-dots" style="padding:12px 0"><span></span><span></span><span></span></div>';
+  sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  try {
+    const res = await fetch('/api/interview', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: originalText, jobTitle, company }),
+    });
+    await checkOk(res);
+
+    const reader = res.body.getReader(), decoder = new TextDecoder();
+    let buf = '', txt = '', done = false;
+    content.innerHTML = '';
+    while (!done) {
+      const { done: d, value } = await reader.read();
+      if (d) break;
+      buf += decoder.decode(value, { stream: true });
+      const lines = buf.split('\n'); buf = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const pl = line.slice(6);
+        if (pl === '[DONE]') { done = true; break; }
+        try {
+          const { text: c, error } = JSON.parse(pl);
+          if (error) throw new Error(error);
+          if (c) { txt += c; content.innerHTML = marked.parse(txt); }
+        } catch {}
+      }
+    }
+  } catch (err) {
+    content.innerHTML = `<div class="error-card">❌ ${err.message}</div>`;
+    btn.classList.remove('active');
+  }
+}
+
+/* ══════════════════════════════════════════════
+   FEATURE 2: 진부한 표현 감지
+══════════════════════════════════════════════ */
+async function detectCliches() {
+  if (!originalText) { showToast('먼저 자기소개서를 분석해주세요.'); return; }
+  const sec     = document.getElementById('clicheSection');
+  const content = document.getElementById('clicheContent');
+  const btn     = document.getElementById('clicheBtn');
+
+  sec.classList.remove('hidden');
+  btn.classList.add('active');
+  content.innerHTML = '<div class="loading-dots" style="padding:12px 0"><span></span><span></span><span></span></div>';
+  sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  try {
+    const res = await fetch('/api/cliche', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: originalText }),
+    });
+    await checkOk(res);
+
+    const reader = res.body.getReader(), decoder = new TextDecoder();
+    let buf = '', txt = '', done = false;
+    content.innerHTML = '';
+    while (!done) {
+      const { done: d, value } = await reader.read();
+      if (d) break;
+      buf += decoder.decode(value, { stream: true });
+      const lines = buf.split('\n'); buf = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const pl = line.slice(6);
+        if (pl === '[DONE]') { done = true; break; }
+        try {
+          const { text: c, error } = JSON.parse(pl);
+          if (error) throw new Error(error);
+          if (c) { txt += c; content.innerHTML = marked.parse(txt); }
+        } catch {}
+      }
+    }
+  } catch (err) {
+    content.innerHTML = `<div class="error-card">❌ ${err.message}</div>`;
+    btn.classList.remove('active');
+  }
+}
+
+/* ══════════════════════════════════════════════
+   FEATURE 3: PDF 내보내기
+══════════════════════════════════════════════ */
+function printResult() {
+  if (!fullText) { showToast('먼저 자기소개서를 분석해주세요.'); return; }
+  window.print();
+}
+
+/* ══════════════════════════════════════════════
+   FEATURE 4: 버전 비교
+══════════════════════════════════════════════ */
+function toggleCompareMode() {
+  compareMode = !compareMode;
+  compareSelects = [];
+  document.getElementById('compareModeBtn').classList.toggle('active', compareMode);
+  const subBtn = document.getElementById('compareSubmitBtn');
+  if (compareMode) { subBtn.classList.remove('hidden'); subBtn.disabled = true; }
+  else             { subBtn.classList.add('hidden'); }
+  renderHistory();
+}
+
+function onCompareToggle(id, checkbox) {
+  if (checkbox.checked) {
+    if (compareSelects.length >= 2) {
+      checkbox.checked = false;
+      showToast('최대 2개만 선택할 수 있습니다.');
+      return;
+    }
+    compareSelects.push(id);
+  } else {
+    compareSelects = compareSelects.filter(x => x !== id);
+  }
+  document.getElementById('compareSubmitBtn').disabled = compareSelects.length !== 2;
+}
+
+function submitCompare() {
+  if (compareSelects.length !== 2) return;
+  const h = getHistory();
+  const a = h.find(e => e.id === compareSelects[0]);
+  const b = h.find(e => e.id === compareSelects[1]);
+  if (!a || !b) return;
+  openCompareModal(a, b);
+}
+
+function openCompareModal(a, b) {
+  function makePane(entry) {
+    const dateStr = new Date(entry.id).toLocaleString('ko-KR', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
+    const title   = `${entry.jobTitle || '직무 미입력'}${entry.company ? ' · '+entry.company : ''} (${dateStr})`;
+    const score   = entry.score ? `<span class="history-item-score">${entry.score}점</span>` : '';
+    const secs    = parseSections(entry.fullText || '');
+    const overSec = secs.find(s => s.heading.includes('종합'));
+    const revSec  = secs.find(s => s.heading.includes('첨삭된'));
+    return `<div class="compare-pane">
+      <div class="compare-pane-head">${esc(title)} ${score}</div>
+      <div class="compare-pane-body">
+        ${overSec ? `<div style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border);font-size:0.84rem;color:var(--text-2)">${marked.parse(overSec.body)}</div>` : ''}
+        <strong style="font-size:0.85rem">첨삭본</strong><br/><br/>
+        ${revSec ? marked.parse(revSec.body) : '<p style="color:var(--text-3)">첨삭본 없음</p>'}
+      </div>
+    </div>`;
+  }
+  document.getElementById('compareView').innerHTML = makePane(a) + makePane(b);
+  document.getElementById('compareOverlay').classList.remove('hidden');
+}
+
+function closeCompare() {
+  document.getElementById('compareOverlay').classList.add('hidden');
+}
+
+/* ══════════════════════════════════════════════
+   FEATURE 6: AI 채팅
+══════════════════════════════════════════════ */
+function openChat() {
+  if (!fullText) { showToast('먼저 자기소개서를 분석해주세요.'); return; }
+  const sec = document.getElementById('chatSection');
+  sec.classList.remove('hidden');
+  sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const container = document.getElementById('chatMessages');
+  if (chatMessages.length === 0 && container.children.length === 0) {
+    const div = document.createElement('div');
+    div.className = 'chat-msg chat-msg--assistant';
+    div.textContent = '안녕하세요! 분석 결과에 대해 궁금한 점이 있으시면 편하게 물어보세요 😊';
+    container.appendChild(div);
+  }
+}
+
+function toggleChat() {
+  document.getElementById('chatSection').classList.add('hidden');
+}
+
+async function sendChat() {
+  const input = document.getElementById('chatInput');
+  const msg   = input.value.trim();
+  if (!msg) return;
+
+  const sendBtn = document.getElementById('chatSendBtn');
+  input.value   = '';
+  sendBtn.disabled = true;
+
+  const container = document.getElementById('chatMessages');
+  const userDiv   = document.createElement('div');
+  userDiv.className   = 'chat-msg chat-msg--user';
+  userDiv.textContent = msg;
+  container.appendChild(userDiv);
+  container.scrollTop = container.scrollHeight;
+
+  chatMessages.push({ role: 'user', content: msg });
+
+  const jobTitle = document.getElementById('jobTitle').value.trim();
+  const company  = document.getElementById('company').value.trim();
+
+  const aDiv = document.createElement('div');
+  aDiv.className = 'chat-msg chat-msg--assistant';
+  aDiv.innerHTML = '<div class="loading-dots" style="padding:4px 0"><span></span><span></span><span></span></div>';
+  container.appendChild(aDiv);
+  container.scrollTop = container.scrollHeight;
+
+  try {
+    const res = await fetch('/api/chat', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messages: chatMessages.slice(-12),
+        analysisResult: fullText,
+        jobTitle, company,
+      }),
+    });
+    await checkOk(res);
+
+    const reader = res.body.getReader(), decoder = new TextDecoder();
+    let buf = '', replyTxt = '', done = false;
+    aDiv.innerHTML = '';
+    while (!done) {
+      const { done: d, value } = await reader.read();
+      if (d) break;
+      buf += decoder.decode(value, { stream: true });
+      const lines = buf.split('\n'); buf = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const pl = line.slice(6);
+        if (pl === '[DONE]') { done = true; break; }
+        try {
+          const { text: c, error } = JSON.parse(pl);
+          if (error) throw new Error(error);
+          if (c) { replyTxt += c; aDiv.innerHTML = marked.parse(replyTxt); container.scrollTop = container.scrollHeight; }
+        } catch {}
+      }
+    }
+    chatMessages.push({ role: 'assistant', content: replyTxt });
+  } catch (err) {
+    aDiv.innerHTML = `<span style="color:var(--red)">❌ ${err.message}</span>`;
+  } finally {
+    sendBtn.disabled = false;
+    input.focus();
+  }
+}
+
+/* ══════════════════════════════════════════════
+   FEATURE: 경쟁자 차별화 분석
+══════════════════════════════════════════════ */
+async function analyzeDifferentiation() {
+  if (!originalText) { showToast('먼저 자기소개서를 분석해주세요.'); return; }
+  const jobTitle = document.getElementById('jobTitle').value.trim();
+  const company  = document.getElementById('company').value.trim();
+  const sec      = document.getElementById('differentiateSection');
+  const content  = document.getElementById('differentiateContent');
+  const btn      = document.getElementById('diffAnalBtn');
+
+  sec.classList.remove('hidden');
+  btn.classList.add('active');
+  content.innerHTML = '<div class="loading-dots" style="padding:12px 0"><span></span><span></span><span></span></div>';
+  sec.scrollIntoView({ behavior:'smooth', block:'start' });
+
+  try {
+    const res = await fetch('/api/differentiate', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ text: originalText, jobTitle, company }),
+    });
+    await checkOk(res);
+
+    const reader = res.body.getReader(), decoder = new TextDecoder();
+    let buf = '', txt = '', done = false;
+    content.innerHTML = '';
+    while (!done) {
+      const { done:d, value } = await reader.read();
+      if (d) break;
+      buf += decoder.decode(value, { stream:true });
+      const lines = buf.split('\n'); buf = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const pl = line.slice(6);
+        if (pl === '[DONE]') { done = true; break; }
+        try { const { text:c, error } = JSON.parse(pl); if (error) throw new Error(error); if (c) { txt += c; content.innerHTML = marked.parse(txt); } } catch {}
+      }
+    }
+  } catch (err) {
+    content.innerHTML = `<div class="error-card">❌ ${err.message}</div>`;
+    btn.classList.remove('active');
+  }
+}
+
+/* ══════════════════════════════════════════════
+   FEATURE: 첨삭 전후 점수 변화 예측
+══════════════════════════════════════════════ */
+async function predictScore() {
+  if (!originalText) { showToast('먼저 자기소개서를 분석해주세요.'); return; }
+  const rev = revisedText || extractRevised(fullText);
+  if (!rev) { showToast('첨삭본을 찾을 수 없습니다. 먼저 분석을 실행해주세요.'); return; }
+
+  const jobTitle = document.getElementById('jobTitle').value.trim();
+  const company  = document.getElementById('company').value.trim();
+  const sec      = document.getElementById('scorePredictSection');
+  const content  = document.getElementById('scorePredictContent');
+  const btn      = document.getElementById('scorePredBtn');
+
+  sec.classList.remove('hidden');
+  btn.classList.add('active');
+  content.innerHTML = '<div class="loading-dots" style="padding:12px 0"><span></span><span></span><span></span></div>';
+  sec.scrollIntoView({ behavior:'smooth', block:'start' });
+
+  try {
+    const res = await fetch('/api/score-predict', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ original: originalText, revised: rev, jobTitle, company }),
+    });
+    await checkOk(res);
+
+    const reader = res.body.getReader(), decoder = new TextDecoder();
+    let buf = '', txt = '', done = false;
+    content.innerHTML = '';
+    while (!done) {
+      const { done:d, value } = await reader.read();
+      if (d) break;
+      buf += decoder.decode(value, { stream:true });
+      const lines = buf.split('\n'); buf = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const pl = line.slice(6);
+        if (pl === '[DONE]') { done = true; break; }
+        try { const { text:c, error } = JSON.parse(pl); if (error) throw new Error(error); if (c) { txt += c; content.innerHTML = marked.parse(txt); } } catch {}
+      }
+    }
+  } catch (err) {
+    content.innerHTML = `<div class="error-card">❌ ${err.message}</div>`;
+    btn.classList.remove('active');
+  }
+}
+
+/* ══════════════════════════════════════════════
+   FEATURE: 스타일 맞춤
+══════════════════════════════════════════════ */
+function openStyleAdapt() {
+  if (!originalText) { showToast('먼저 자기소개서를 분석해주세요.'); return; }
+  const sec = document.getElementById('styleSection');
+  sec.classList.remove('hidden');
+  document.getElementById('styleBtn').classList.add('active');
+  sec.scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+function selectStyleOpt(btn) {
+  document.querySelectorAll('.style-opt-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  selectedStyle = btn.dataset.style;
+}
+
+async function convertStyle() {
+  if (!originalText) { showToast('먼저 자기소개서를 분석해주세요.'); return; }
+  const convBtn = document.getElementById('styleConvertBtn');
+  const result  = document.getElementById('styleResult');
+  const content = document.getElementById('styleResultContent');
+  const label   = document.getElementById('styleResultLabel');
+  const jobTitle = document.getElementById('jobTitle').value.trim();
+  const company  = document.getElementById('company').value.trim();
+
+  convBtn.disabled = true;
+  convBtn.textContent = '⏳ 변환 중...';
+  result.classList.remove('hidden');
+  content.textContent = '';
+  label.textContent = `${selectedStyle} 스타일 변환 결과`;
+
+  try {
+    const res = await fetch('/api/style-adapt', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ text: originalText, style: selectedStyle, jobTitle, company }),
+    });
+    await checkOk(res);
+
+    const reader = res.body.getReader(), decoder = new TextDecoder();
+    let buf = '', txt = '', done = false;
+    while (!done) {
+      const { done:d, value } = await reader.read();
+      if (d) break;
+      buf += decoder.decode(value, { stream:true });
+      const lines = buf.split('\n'); buf = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const pl = line.slice(6);
+        if (pl === '[DONE]') { done = true; break; }
+        try { const { text:c, error } = JSON.parse(pl); if (error) throw new Error(error); if (c) { txt += c; content.textContent = txt; } } catch {}
+      }
+    }
+  } catch (err) {
+    content.textContent = '❌ ' + err.message;
+  } finally {
+    convBtn.disabled = false;
+    convBtn.textContent = '✨ 스타일 변환하기';
+  }
+}
+
+function copyStyleResult() {
+  const txt = document.getElementById('styleResultContent').textContent;
+  if (!txt) return;
+  navigator.clipboard.writeText(txt).then(() => showToast('변환 결과가 복사되었습니다.'));
+}
+
+/* ══════════════════════════════════════════════
+   FEATURE: 템플릿 라이브러리
+══════════════════════════════════════════════ */
+const TEMPLATES = {
+  '💻 개발자/엔지니어': {
+    desc: '백엔드 · 프론트엔드 · 풀스택',
+    text: `저는 [주요 기술 스택: React, Node.js 등]을 활용하여 실제 사용자에게 가치를 제공하는 서비스를 만드는 개발자입니다. [학교/부트캠프] 재학 중 [프로젝트명] 팀 프로젝트에서 백엔드를 담당하여 [핵심 기능]을 구현했으며, [응답속도 30% 개선 / MAU 500명 달성] 등의 성과를 경험했습니다.
+
+특히 [기술적 문제 상황]을 맞닥뜨렸을 때, [해결 접근 방법]으로 문제를 해결한 경험이 인상적이었습니다. 단순히 코드를 작성하는 것을 넘어, 팀원들과 코드 리뷰를 진행하며 더 나은 구조와 가독성에 대해 고민하는 습관을 길렀습니다.
+
+귀사의 [서비스/기술 스택/문화]에 매력을 느끼며 지원하게 되었습니다. 주니어 개발자로서 빠르게 성장하며 팀에 실질적인 기여를 할 수 있도록 최선을 다하겠습니다.`
+  },
+  '📣 마케터/브랜드': {
+    desc: '디지털 마케팅 · 브랜드 관리',
+    text: `저는 [SNS/검색광고/콘텐츠] 마케팅으로 브랜드의 목소리를 키워온 마케터입니다. [기간] 동안 [회사/인턴/동아리]에서 [캠페인명]을 기획·실행하여 [팔로워 X% 증가 / CTR X% 달성 / ROAS X배] 등의 성과를 달성했습니다.
+
+데이터 기반의 의사결정을 중요시하여, [GA/앰플리튜드/SQL]를 활용한 성과 분석으로 캠페인을 지속적으로 최적화하는 방식으로 일합니다. [특정 프로젝트]에서 [문제 상황]을 [해결 방법]으로 극복하여 [결과]를 이뤄낸 경험이 가장 기억에 남습니다.
+
+귀사의 [브랜드/제품]이 [이유로] 차별화된다고 생각하며, 이 브랜드를 더 많은 고객에게 알리는 데 기여하고 싶습니다.`
+  },
+  '📋 기획자/PM': {
+    desc: '서비스 기획 · 프로덕트 매니저',
+    text: `저는 사용자와 비즈니스 모두를 이해하고 균형점을 찾는 것에서 보람을 느끼는 기획자입니다. [프로젝트명]을 기획하며 사용자 인터뷰 [N명]을 진행하고, [핵심 페인포인트]를 발견하여 [솔루션]을 설계했습니다. 결과적으로 [이탈률 X% 감소 / 전환율 X% 증가] 등의 성과로 이어졌습니다.
+
+[일정 지연/리소스 부족/이해관계자 충돌] 상황에서, [대응 방식]으로 프로젝트를 성공적으로 마무리했습니다. 이 경험을 통해 불확실한 상황에서도 데이터와 소통으로 방향을 찾는 능력을 키웠습니다.
+
+귀사의 [서비스]는 [이유]로 성장 가능성이 크다고 판단하며, 사용자 중심의 기획 역량으로 이 성장에 기여하고 싶습니다.`
+  },
+  '🎨 디자이너': {
+    desc: 'UX/UI · 그래픽 · 브랜딩',
+    text: `저는 사용자의 니즈를 시각 언어로 해결하는 것을 즐기는 디자이너입니다. [포트폴리오 URL 또는 주요 작업물]에서 확인하실 수 있듯이, [UX/UI/그래픽/브랜딩] 분야에 집중하여 [N개] 프로젝트를 완성했습니다.
+
+[특정 프로젝트]에서 사용자 조사를 바탕으로 [기존 문제점]을 발견하고, [디자인 솔루션]을 적용한 결과 [사용성 개선 지표 또는 정성적 피드백]을 얻었습니다. 아름다운 UI를 만드는 것에서 그치지 않고, 사용자의 행동 흐름을 고려한 경험 설계에 집중합니다.
+
+귀사의 [서비스/브랜드]의 [디자인 방향성]에 매력을 느끼며, 사용자와 브랜드 모두에게 가치 있는 디자인으로 기여하고 싶습니다.`
+  },
+  '🤝 영업/CS': {
+    desc: '영업 · 고객 성공 · 고객 서비스',
+    text: `저는 고객의 문제를 해결하고 신뢰를 쌓는 것에서 직업적 만족감을 느끼는 사람입니다. [기간] 동안 [회사/인턴]에서 [고객 응대/영업] 업무를 담당하며 [월 평균 X건 처리 / 재구매율 X% / 목표 달성률 X%] 등의 성과를 기록했습니다.
+
+[어려운 고객 상황/클레임/목표 미달 위기] 상황에서 [접근 방식]으로 고객의 신뢰를 회복하고 [결과]를 만들어낸 경험이 있습니다. 단기 실적보다 고객과의 장기적 관계를 중요시하는 태도가 결국 더 좋은 성과로 이어진다는 것을 배웠습니다.
+
+귀사의 [제품/서비스]가 고객에게 [가치]를 제공한다는 점에서 진심으로 공감하며 지원합니다.`
+  },
+  '🏛️ 공기업/대기업': {
+    desc: '공공기관 · 대기업 공채',
+    text: `저는 공동의 목표를 향해 구성원들과 협력하며 조직에 기여하는 것에서 가장 큰 보람을 느끼는 사람입니다. [전공]을 전공하며 [관련 자격증/역량]을 취득하였고, [대외활동/인턴/프로젝트]를 통해 실무 감각을 키워왔습니다.
+
+[특정 경험]에서 [역할]을 맡아 [상황/문제]를 [방법]으로 해결하였으며, 그 과정에서 [책임감/소통능력/전문성]을 함양할 수 있었습니다. 또한 [수상 경력/자격증/어학 성적]을 통해 전문적 역량을 인정받았습니다.
+
+귀사(기관)는 [미션/비전]을 통해 [사회적 가치]를 창출하고 있으며, 저의 [강점]이 이 목표 달성에 기여할 수 있다고 확신합니다. 입사 후에도 끊임없이 자기개발하며 성장하는 인재가 되겠습니다.`
+  },
+};
+
+function openTemplates() {
+  const overlay = document.getElementById('templateOverlay');
+  overlay.classList.remove('hidden');
+  const keys = Object.keys(TEMPLATES);
+  if (!currentTplKey) currentTplKey = keys[0];
+  renderTemplateTabs();
+  renderTemplatePreview(currentTplKey);
+}
+
+function closeTemplates() {
+  document.getElementById('templateOverlay').classList.add('hidden');
+}
+
+function renderTemplateTabs() {
+  const tabs = document.getElementById('templateTabs');
+  tabs.innerHTML = Object.keys(TEMPLATES).map(key => `
+    <button class="template-tab-btn ${key === currentTplKey ? 'active' : ''}" onclick="selectTemplate('${key.replace(/'/g,"\\'")}')">
+      ${key}
+    </button>`).join('');
+}
+
+function selectTemplate(key) {
+  currentTplKey = key;
+  renderTemplateTabs();
+  renderTemplatePreview(key);
+}
+
+function renderTemplatePreview(key) {
+  const tpl  = TEMPLATES[key];
+  const area = document.getElementById('templatePreviewArea');
+  const highlighted = tpl.text.replace(/\[[^\]]+\]/g, m =>
+    `<span class="tpl-ph">${m.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</span>`
+  );
+  area.innerHTML = `
+    <p class="template-desc">${tpl.desc}</p>
+    <div class="template-text-box">${highlighted}</div>`;
+}
+
+function useTemplate() {
+  if (!currentTplKey || !TEMPLATES[currentTplKey]) return;
+  const modeSwitch = document.getElementById('modeSwitch');
+  if (modeSwitch.checked) {
+    modeSwitch.checked = false;
+    toggleMode();
+  }
+  document.getElementById('coverLetter').value = TEMPLATES[currentTplKey].text;
+  updateChar();
+  closeTemplates();
+  showToast(`'${currentTplKey}' 템플릿을 불러왔습니다. [ ] 안의 내용을 채워주세요.`);
+}
+</script>
+</body>
+</html>
